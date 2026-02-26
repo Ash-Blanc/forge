@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "next lint",
+    "seed": "curl -X POST http://localhost:3000/api/seed"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@supabase/supabase-js": "^2.39.3",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"

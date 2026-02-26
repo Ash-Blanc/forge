@@ -1,26 +1,268 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+    --color-bg: #06080f;
+    --color-surface: #0a0e1a;
+    --color-elevated: #0f1420;
+    --color-border: #181f30;
+    --color-border-hover: #232d42;
+
+    --color-text: #dde4f0;
+    --color-muted: #5a6a85;
+    --color-faint: #2d3a50;
+
+    --color-accent: #e2c87a;
+    --color-accent-dim: rgba(226, 200, 122, 0.07);
+
+    --color-blue: #5b9bd5;
+    --color-blue-dim: #111d30;
+
+    --color-stone-custom: #b08c6a;
+    --color-stone-custom-dim: #201510;
+
+    --color-teal-custom: #4da89a;
+    --color-teal-custom-dim: #0a1e1c;
+
+    --color-sage-custom: #7aab82;
+    --color-sage-custom-dim: #0d1e10;
+
+    --color-red-custom: #c97070;
+    --color-red-custom-dim: #1e0e0e;
+
+    --font-sans: 'Sora', system-ui, sans-serif;
+    --font-mono: 'DM Mono', 'Fira Mono', monospace;
+
+    --radius-sm: 5px;
+    --radius-md: 9px;
+    --radius-lg: 13px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+    :root {
+        --bg: var(--color-bg);
+        --surface: var(--color-surface);
+        --elevated: var(--color-elevated);
+        --border: var(--color-border);
+        --border-h: var(--color-border-hover);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+        --text: var(--color-text);
+        --muted: var(--color-muted);
+        --faint: var(--color-faint);
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+        --accent: var(--color-accent);
+        --accent-dim: var(--color-accent-dim);
+
+        --blue: var(--color-blue);
+        --blue-dim: var(--color-blue-dim);
+        --stone: var(--color-stone-custom);
+        --stone-dim: var(--color-stone-custom-dim);
+        --teal: var(--color-teal-custom);
+        --teal-dim: var(--color-teal-custom-dim);
+        --sage: var(--color-sage-custom);
+        --sage-dim: var(--color-sage-custom-dim);
+
+        --red: var(--color-red-custom);
+        --red-dim: var(--color-red-custom-dim);
+
+        --font: var(--font-sans);
+        --mono: var(--font-mono);
+
+        --r-sm: var(--radius-sm);
+        --r-md: var(--radius-md);
+        --r-lg: var(--radius-lg);
+    }
+
+    *,
+    *::before,
+    *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+
+    html {
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+        color-scheme: dark;
+    }
+
+    body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font);
+        line-height: 1.55;
+        overflow: hidden;
+        height: 100dvh;
+    }
+
+    ::-webkit-scrollbar {
+        width: 3px;
+        height: 3px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--border-h);
+        border-radius: 3px;
+    }
+
+    :focus-visible {
+        outline: 1.5px solid var(--accent);
+        outline-offset: 2px;
+    }
+
+    /* Animations */
+    @keyframes fadeUp {
+        from {
+            opacity: 0;
+            transform: translateY(5px)
+        }
+
+        to {
+            opacity: 1;
+            transform: none
+        }
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg)
+        }
+    }
+
+    @keyframes blink {
+
+        0%,
+        100% {
+            opacity: 1
+        }
+
+        50% {
+            opacity: 0
+        }
+    }
+
+    .animate-fade-up {
+        animation: fadeUp .2s ease both;
+    }
+
+    .animate-spin {
+        animation: spin 1.2s linear infinite;
+    }
+
+    .animate-blink {
+        animation: blink 1.1s step-end infinite;
+    }
+
+    /* Layout */
+    .scroll-y {
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    /* Card */
+    .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        transition: border-color .15s;
+    }
+
+    /* Field */
+    .field {
+        width: 100%;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        padding: .5rem .75rem;
+        color: var(--text);
+        font-family: var(--font);
+        font-size: .875rem;
+        line-height: 1.5;
+        outline: none;
+        transition: border-color .15s;
+    }
+
+    .field:focus {
+        border-color: var(--border-h);
+    }
+
+    .field::placeholder {
+        color: var(--faint);
+    }
+
+    textarea.field {
+        resize: vertical;
+        min-height: 60px;
+    }
+
+    /* Buttons */
+    .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .35rem;
+        background: var(--accent);
+        color: #0a0800;
+        font-family: var(--mono);
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .02em;
+        border: none;
+        border-radius: var(--r-md);
+        padding: .45rem .9rem;
+        cursor: pointer;
+        transition: opacity .15s, transform .1s;
+        white-space: nowrap;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        opacity: .85;
+    }
+
+    .btn-primary:active:not(:disabled) {
+        transform: scale(.97);
+    }
+
+    .btn-primary:disabled {
+        opacity: .3;
+        cursor: not-allowed;
+    }
+
+    .btn-ghost {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .35rem;
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: .72rem;
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        padding: .4rem .75rem;
+        cursor: pointer;
+        transition: all .15s;
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+        border-color: var(--border-h);
+        color: var(--text);
+    }
+
+    .btn-ghost:disabled {
+        opacity: .3;
+        cursor: not-allowed;
+    }
+
+    /* Divider */
+    .divider {
+        height: 1px;
+        background: var(--border);
+        margin: 12px 0;
+    }
 }
