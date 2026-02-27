@@ -6,7 +6,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from agno.agent import Agent
-from agno.models.anthropic import Claude
+from agno.models.cerebras import Cerebras
+from dotenv import load_dotenv
+
+# Load .env.local from the parent directory
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env.local'))
 
 app = FastAPI()
 
@@ -48,7 +52,7 @@ Return exactly this JSON (all fields required, no numeric scores):
 
 # Load agent model
 agent = Agent(
-    model=Claude(id="claude-3-5-sonnet-20241022"),
+    model=Cerebras(id="llama3.3-70b"),
     description=SYSTEM_PROMPT,
     markdown=False
 )

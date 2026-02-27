@@ -122,9 +122,10 @@ export default function FeedPage() {
             <nav className="h-[50px] border-b border-border px-4 flex items-center justify-between bg-surface/80 backdrop-blur-md shrink-0 z-10">
                 <div className="flex items-center gap-[18px]">
                     {/* Wordmark */}
-                    <Link href="/" className="flex items-baseline gap-2 cursor-pointer no-underline">
-                        <span className="font-extrabold text-[0.9375rem] tracking-tight text-text">FORGE</span>
-                        <span className="text-faint text-[0.67rem] font-mono hover:text-muted transition-colors">research → reality</span>
+                    <Link href="/" className="flex items-center gap-2 cursor-pointer no-underline group">
+                        <span className="font-extrabold text-xl tracking-tight text-text">FORGE</span>
+                        <span className="text-accent text-[1.2rem] font-mono leading-none">⬡</span>
+                        <span className="text-faint text-[0.7rem] font-mono hover:text-muted transition-colors ml-1 hidden sm:inline">research → reality</span>
                     </Link>
 
                     {/* Filters */}

@@ -61,14 +61,14 @@ export default function LandingPage() {
     }, []);
 
     return (
-        <div className="min-h-screen bg-bg text-text overflow-x-hidden" style={{ overflow: "auto" }}>
+        <div className="min-h-screen bg-bg text-text overflow-x-hidden flex flex-col">
 
             {/* ─── FLOATING NAV ─── */}
             <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 backdrop-blur-xl"
                 style={{ background: scrollY > 40 ? "rgba(6,8,15,0.85)" : "transparent", borderBottom: scrollY > 40 ? "1px solid var(--border)" : "1px solid transparent", transition: "all .3s ease" }}>
-                <div className="flex items-baseline gap-2">
-                    <span className="font-extrabold text-base tracking-tight text-text">FORGE</span>
-                    <span className="text-faint text-[0.6rem] font-mono">⬡</span>
+                <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-2xl tracking-tight text-text">FORGE</span>
+                    <span className="text-accent text-[1.4rem] font-mono leading-none">⬡</span>
                 </div>
                 <div className="flex items-center gap-3">
                     {isLoggedIn ? (
@@ -150,7 +150,7 @@ export default function LandingPage() {
                     {STATS.map((s, i) => (
                         <div key={i} className="flex flex-col items-center py-8 gap-1">
                             <span className="text-accent font-extrabold text-2xl md:text-3xl tracking-tight">{s.value}</span>
-                            <span className="text-muted text-[0.67rem] font-mono text-center">{s.label}</span>
+                            <span className="text-muted text-[0.75rem] font-mono text-center">{s.label}</span>
                         </div>
                     ))}
                 </div>
@@ -159,7 +159,7 @@ export default function LandingPage() {
             {/* ─── FEATURES ─── */}
             <section className="max-w-5xl mx-auto px-5 py-24">
                 <div className="text-center mb-16">
-                    <span className="text-[0.6rem] font-mono text-muted uppercase tracking-[0.15em] block mb-3">Capabilities</span>
+                    <span className="text-[0.7rem] font-mono text-muted uppercase tracking-[0.15em] block mb-3">Capabilities</span>
                     <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
                         Everything you need to go from
                         <span className="text-accent"> paper to product</span>
@@ -189,7 +189,7 @@ export default function LandingPage() {
             <section id="how-it-works" className="border-t border-border/40 bg-elevated/40 py-24 px-5">
                 <div className="max-w-3xl mx-auto">
                     <div className="text-center mb-16">
-                        <span className="text-[0.6rem] font-mono text-muted uppercase tracking-[0.15em] block mb-3">How it Works</span>
+                        <span className="text-[0.7rem] font-mono text-muted uppercase tracking-[0.15em] block mb-3">How it Works</span>
                         <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
                             Three steps to your next
                             <span className="text-teal-custom"> SaaS idea</span>
@@ -242,11 +242,12 @@ export default function LandingPage() {
             {/* ─── FOOTER ─── */}
             <footer className="border-t border-border/40 py-8 px-5">
                 <div className="max-w-5xl mx-auto flex items-center justify-between">
-                    <div className="flex items-baseline gap-2">
-                        <span className="font-extrabold text-[0.8rem] tracking-tight text-muted">FORGE</span>
-                        <span className="text-faint text-[0.55rem] font-mono">research → reality</span>
+                    <div className="flex items-center gap-2 text-muted">
+                        <span className="font-extrabold text-[1rem] tracking-tight">FORGE</span>
+                        <span className="text-accent text-[1.2rem] font-mono leading-none">⬡</span>
+                        <span className="text-faint text-[0.7rem] font-mono ml-1">research → reality</span>
                     </div>
-                    <span className="text-faint text-[0.6rem] font-mono">© {new Date().getFullYear()}</span>
+                    <span className="text-faint text-[0.7rem] font-mono">© {new Date().getFullYear()}</span>
                 </div>
             </footer>
         </div>

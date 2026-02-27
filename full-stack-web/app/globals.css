@@ -29,8 +29,8 @@
     --color-red-custom: #c97070;
     --color-red-custom-dim: #1e0e0e;
 
-    --font-sans: 'Sora', system-ui, sans-serif;
-    --font-mono: 'DM Mono', 'Fira Mono', monospace;
+    --font-sans: var(--font-sans), system-ui, sans-serif;
+    --font-mono: var(--font-mono), monospace;
 
     --radius-sm: 5px;
     --radius-md: 9px;
@@ -82,9 +82,10 @@
 
 
     html {
-        font-size: 14px;
+        font-size: 16px;
         -webkit-font-smoothing: antialiased;
         color-scheme: dark;
+        scroll-behavior: smooth;
     }
 
     body {
@@ -92,8 +93,7 @@
         color: var(--text);
         font-family: var(--font);
         line-height: 1.55;
-        overflow: hidden;
-        height: 100dvh;
+        overflow-x: hidden;
     }
 
     ::-webkit-scrollbar {

@@ -8,7 +8,14 @@ export interface ArxivMeta {
 }
 
 export async function fetchArxivMeta(rawId: string): Promise<ArxivMeta> {
-    const id = rawId.replace(/^arxiv:\s*/i, "").trim();
+    let id = rawId.trim();
+    // Support full URLs or `arxiv:` prefixes
+    const urlMatch = id.match(/(?:arxiv\.org\/(?:abs|pdf)\/|arxiv:)([\w.-]+)/i);
+    if (urlMatch) {
+        id = urlMatch[1];
+    } else {
+        id = id.replace(/\.pdf$/i, "");
+    }
     const url = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(id)}`;
 
     const res = await fetch(url, { next: { revalidate: 3600 } });

@@ -63,7 +63,8 @@ export default function OnboardingPage() {
 
                 {/* Mark */}
                 <div style={{ marginBottom: 28 }}>
-                    <div style={{ fontSize: ".75rem", fontFamily: "var(--mono)", color: "var(--faint)", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 10 }}>
+                    <div style={{ fontSize: "1.8rem", color: "var(--accent)", marginBottom: 4, fontFamily: "var(--mono)", lineHeight: 1 }}>⬡</div>
+                    <div style={{ fontSize: ".85rem", fontFamily: "var(--mono)", color: "var(--muted)", letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 700, marginBottom: 8 }}>
                         FORGE
                     </div>
                     <h1 style={{ color: "var(--text)", fontSize: "1.5rem", fontWeight: 700, lineHeight: 1.25, letterSpacing: "-.02em", marginBottom: 6 }}>
