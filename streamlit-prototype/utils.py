@@ -116,6 +116,27 @@ def fetch_arxiv_meta(arxiv_id: str, max_retries: int = 3) -> dict:
     return {}
 
 
+def download_arxiv_pdf(arxiv_id: str) -> str | None:
+    """Download the PDF for a given arXiv ID and return the local path."""
+    pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
+    tmp_dir = os.path.join(os.path.dirname(__file__), "tmp")
+    os.makedirs(tmp_dir, exist_ok=True)
+    local_path = os.path.join(tmp_dir, f"{arxiv_id}.pdf")
+
+    if os.path.exists(local_path):
+        return local_path
+
+    try:
+        req = urllib.request.Request(pdf_url, headers={"User-Agent": "FORGE-Agent/1.0"})
+        with urllib.request.urlopen(req, timeout=60) as response:
+            with open(local_path, "wb") as f:
+                f.write(response.read())
+        return local_path
+    except Exception as e:
+        st.error(f"Failed to download PDF: {e}")
+        return None
+
+
 # ── JSON parsing ──────────────────────────────────────────────────────────────
 
 

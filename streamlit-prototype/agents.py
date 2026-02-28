@@ -10,12 +10,13 @@ from tools import SemanticScholarTools
 # ── Available Models ──────────────────────────────────────────────────────────
 
 AVAILABLE_MODELS = {
+    "AWS Bedrock — Nova Pro": "amazon.nova-pro-v1:0",
     "AWS Bedrock — Nova 2 Lite": "amazon.nova-lite-v1:0",
     "OpenAI — GPT-4o Mini": "openai:gpt-4o-mini",
     "Anthropic — Claude Sonnet": "anthropic:claude-sonnet-4-20250514",
 }
 
-DEFAULT_MODEL_KEY = "AWS Bedrock — Nova 2 Lite"
+DEFAULT_MODEL_KEY = "AWS Bedrock — Nova Pro"
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
@@ -182,16 +183,26 @@ def get_model(model_id_or_obj):
         boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
         return AwsBedrock(id="amazon.nova-lite-v1:0", session=boto_session)
 
-def run_analysis_agent(prompt: str, model: str) -> tuple[str, dict | None]:
-    """Run the main analysis agent. Returns (raw_text, parsed_dict_or_none)."""
+def run_analysis_agent(prompt: str, model: str, pdf_path: str = None) -> tuple[str, dict | None]:
+    """Run the main analysis agent with optional PDF for multimodal context.
+    
+    Returns (raw_text, parsed_dict_or_none).
+    """
     agent = Agent(
         model=get_model(model),
         description=SYSTEM_PROMPT,
         markdown=False,
     )
 
+    args = {"text": prompt}
+    if pdf_path and os.path.exists(pdf_path):
+        # Attach PDF for Multimodal analysis with Nova Pro
+        args["images"] = [pdf_path] 
+
     raw = ""
-    for chunk in agent.run(prompt, stream=True):
+    # Note: Using agent.run(..., images=[...]) if Agno supports it directly for Bedrock
+    # or passing as part of the message. For Nova Pro, we pass the file.
+    for chunk in agent.run(prompt, images=[pdf_path] if pdf_path else None, stream=True):
         content = chunk.content if hasattr(chunk, "content") else str(chunk)
         if content:
             raw += content

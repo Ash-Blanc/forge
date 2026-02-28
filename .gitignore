@@ -34,3 +34,4 @@ Thumbs.db
 # App specific
 streamlit-prototype/.streamlit/
 streamlit-prototype/sessions.json
+streamlit-prototype/tmp/

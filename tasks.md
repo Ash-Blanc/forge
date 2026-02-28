@@ -18,8 +18,8 @@ Development tasks for FORGE — an AI platform that distills arXiv papers into a
 ## 🚧 In Progress
 
 - [ ] Dashboard page with paper feed
-- [ ] Paper detail view with NOVA scores
-- [ ] Submit modal for new arXiv papers
+- [ ] Paper detail view with NOVA scores (Powered by Amazon Nova Pro Multimodal)
+- [ ] Submit modal for new arXiv papers (Trigger PDF analysis)
 
 ---
 
@@ -46,11 +46,11 @@ Development tasks for FORGE — an AI platform that distills arXiv papers into a
 
 ### Backend (`full-stack-web/agents/`)
 
-- [ ] `POST /analyze` - Submit arXiv ID for analysis
+- [ ] `POST /analyze` - Submit arXiv ID for analysis (Nova Pro Multimodal PDF analysis)
 - [ ] `GET /papers` - List analyzed papers
 - [ ] `GET /papers/:id` - Get specific analysis
 - [ ] Authentication for protected endpoints
-- [ ] Rate limiting
+- [ ] Rate limiting (Amazon Bedrock quotas)
 
 ### Database (`Supabase`)
 

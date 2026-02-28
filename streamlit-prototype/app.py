@@ -6,7 +6,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from dotenv import load_dotenv
-from utils import parse_agent_json, extract_arxiv_id, fetch_arxiv_meta, build_saas_prompt
+from utils import parse_agent_json, extract_arxiv_id, fetch_arxiv_meta, build_saas_prompt, download_arxiv_pdf
 from agno.agent import Agent
 from agno.tools.parallel import ParallelTools
 from agents import (
@@ -646,94 +646,55 @@ elif analyze_btn and st.session_state.app_mode == "📄 Paper → Idea" and arxi
             status = st.status("Analyzing...", expanded=True)
 
             try:
-                agent = Agent(
-                    model=get_model(selected_model),
-                    description=SYSTEM_PROMPT,
-                    markdown=False,
-                )
+                # 1. Download PDF for Multimodal Analysis
+                prog.progress(20)
+                status.update(label="Downloading full paper for Multimodal analysis...", state="running")
+                pdf_path = download_arxiv_pdf(session_id)
 
-                prog.progress(30)
-                status.update(label="Finding the best idea...", state="running")
+                # 2. Run Analysis Agent (Nova Pro + PDF)
+                prog.progress(40)
+                status.update(label="Nova Pro is reading the full paper charts and data...", state="running")
+                
+                full_raw, data = run_analysis_agent(build_prompt(meta), selected_model, pdf_path=pdf_path)
 
-                full_raw = ""
-                for chunk in agent.run(build_prompt(meta), stream=True):
-                    content = chunk.content if hasattr(chunk, "content") else str(chunk)
-                    if content:
-                        full_raw += content
-
-                prog.progress(70)
-
-                clean = re.sub(r"```json\s*", "", full_raw, flags=re.IGNORECASE)
-                clean = re.sub(r"```\s*", "", clean).strip()
-                match = re.search(r"\{[\s\S]*\}", clean)
-
-                if not match:
+                if not data:
                     st.error("Failed to generate idea.")
                     st.code(full_raw)
                 else:
+                    st.session_state.sessions[session_id] = {
+                        "timestamp": datetime.now().isoformat(),
+                        "productName": data.get("startupIdea", {}).get("startupName", "TBD"),
+                        "data": data,
+                        "meta": meta,
+                        "mode": "arxiv"
+                    }
+
+                    # 3. Generating alternatives
+                    prog.progress(80)
+                    status.update(label="Generating alternative angles...", state="running")
+
                     try:
-                        data = json.loads(match.group(0))
-
-                        st.session_state.sessions[session_id] = {
-                            "timestamp": datetime.now().isoformat(),
-                            "productName": data.get("startupIdea", {}).get(
-                                "startupName", "TBD"
-                            ),
-                            "data": data,
-                            "meta": meta,
-                            "mode": "arxiv"
-                        }
-
-                        prog.progress(85)
-                        status.update(
-                            label="Generating alternatives...", state="running"
+                        suggestion_raw, sugg_data = run_suggestion_agent(
+                            data.get('startupIdea', {}).get('oneLiner', ''),
+                            meta.get('abstract', ''),
+                            selected_model
                         )
+                        if sugg_data and "suggestions" in sugg_data:
+                            data["suggestions"] = sugg_data["suggestions"]
+                            st.session_state.sessions[session_id]["data"] = data
+                    except Exception as e:
+                        st.caption(f"Could not generate suggestions: {e}")
 
-                        try:
-                            suggestion_agent = Agent(
-                                model=selected_model,
-                                description=SUGGESTION_PROMPT,
-                                markdown=False,
-                            )
+                    save_sessions(st.session_state.sessions)
+                    st.session_state.current_session_id = session_id
 
-                            suggestion_raw = ""
-                            for chunk in suggestion_agent.run(
-                                f"Main idea: {data.get('startupIdea', {}).get('oneLiner', '')}\n\nPaper: {meta.get('abstract', '')[:2000]}",
-                                stream=True,
-                            ):
-                                content = (
-                                    chunk.content
-                                    if hasattr(chunk, "content")
-                                    else str(chunk)
-                                )
-                                if content:
-                                    suggestion_raw += content
+                    prog.progress(100)
+                    status.update(label="Done", state="complete", expanded=False)
+                    st.toast(f"Generated: {data.get('startupIdea', {}).get('startupName', 'TBD')}", icon="💡")
 
-                            sugg_data = parse_agent_json(suggestion_raw)
-                            if sugg_data and "suggestions" in sugg_data:
-                                data["suggestions"] = sugg_data["suggestions"]
-                                st.session_state.sessions[session_id]["data"] = data
-                        except Exception as e:
-                            st.caption(f"Could not generate suggestions: {e}")
-
-                        save_sessions(st.session_state.sessions)
-                        st.session_state.current_session_id = session_id
-
-                        prog.progress(100)
-                        status.update(label="Done", state="complete", expanded=False)
-                        st.toast(
-                            f"Generated: {data.get('startupIdea', {}).get('startupName', 'TBD')}",
-                            icon="💡",
-                        )
-
-                        render_main_idea(data, selected_model)
-
-                        if data.get("suggestions"):
-                            render_suggestions(data["suggestions"], session_id)
-
-                    except json.JSONDecodeError:
-                        st.error("Parse error")
-                        st.code(full_raw)
+                    render_main_idea(data, selected_model)
+                    if data.get("suggestions"):
+                        render_suggestions(data["suggestions"], session_id)
 
             except Exception as e:
                 st.error(f"Error: {str(e)}")
