@@ -62,16 +62,16 @@ export async function POST(req: NextRequest) {
             authors: meta.authors ?? [],
             published: meta.published ?? "",
             submitted_by_id: userId,
-            opportunity: analysis.opportunity ?? null,
-            core_innovation: analysis.coreInnovation ?? null,
-            target_customer: analysis.targetCustomer ?? null,
-            market_size: analysis.marketSize ?? null,
-            build_complexity: analysis.buildComplexity ?? null,
-            mvp_days: analysis.mvpDays ?? null,
-            moat_analysis: analysis.moatAnalysis ?? null,
-            tags: analysis.tags ?? [],
-            first_90_days: analysis.first90Days ?? [],
-            narrative_analysis: analysis.narrativeAnalysis ?? null,
+            opportunity: analysis.startupIdea?.oneLiner ?? null,
+            core_innovation: analysis.paperAnalysis?.coreBreakthrough ?? null,
+            target_customer: analysis.startupIdea?.targetUser?.persona ?? null,
+            market_size: "Unknown", // Temporarily mapped out or can be replaced later
+            build_complexity: analysis.startupIdea?.metrics?.competition ?? null,
+            mvp_days: analysis.startupIdea?.metrics?.mvpMonths ? analysis.startupIdea.metrics.mvpMonths * 30 : null,
+            moat_analysis: analysis.startupIdea?.product?.differentiation ?? null,
+            tags: analysis.paperAnalysis?.applications ?? [],
+            first_90_days: [], // Dropped in new schema
+            narrative_analysis: analysis.paperAnalysis?.summary ?? null,
         })
         .select(PAPER_SELECT)
         .single();

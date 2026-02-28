@@ -966,22 +966,82 @@
       "abstract": "Recent advancements in large reasoning models (LRMs) have greatly improved their capabilities on complex reasoning tasks through Long Chains of Thought (CoTs). However, this approach often results in substantial redundancy, impairing computational efficiency and causing significant delays in real-time applications. Recent studies show that longer reasoning chains are frequently uncorrelated with correctness and can even be detrimental to accuracy. In a further in-depth analysis of this phenomenon, we surprisingly uncover and empirically verify that LRMs implicitly know the appropriate time to stop thinking, while this capability is obscured by current sampling paradigms. Motivated by this, we introduce SAGE (Self-Aware Guided Efficient Reasoning), a novel sampling paradigm that unleashes this efficient reasoning potential. Furthermore, integrating SAGE as mixed sampling into group-based reinforcement learning (SAGE-RL) enables SAGE-RL to effectively incorporate SAGE-discovered efficient reasoning patterns into standard pass@1 inference, markedly enhancing both the reasoning accuracy and efficiency of LRMs across multiple challenging mathematical benchmarks."
     }
   },
-  "saas_20260228035401": {
-    "timestamp": "2026-02-28T03:54:08.555722",
-    "productName": "a platform that converts arxiv papers in...",
+  "2502.10954": {
+    "timestamp": "2026-02-28T13:53:50.396751",
+    "productName": "OptiCompute",
     "data": {
-      "name": "parallel_extract",
-      "arguments": {
-        "urls": "[\"https://arxiv.org/abs/2201.02453\", \"https://arxiv.org/abs/2206.05237\", \"https://arxiv.org/abs/2212.06234\"]",
-        "excerpts": true,
-        "max_chars_per_excerpt": 1000,
-        "full_content": true,
-        "max_chars_for_full_content": 0
+      "paperAnalysis": {
+        "summary": "This paper addresses the issue of excessive computation in deep-thinking models during test time by introducing a method to determine the optimal computation needed for each test sample. It proposes a new recurrent architecture, Conv-LiGRU, that improves stability and accuracy while mitigating the 'overthinking' problem.",
+        "coreBreakthrough": "The ability to determine the optimal amount of computation needed for each test sample during test time, preventing the 'overthinking' phenomenon.",
+        "keyInnovations": [
+          "Test time training method for determining optimal computation",
+          "Conv-LiGRU: A novel recurrent architecture for efficient visual reasoning"
+        ],
+        "applications": [
+          "Real-time object detection in low-resource environments, where each frame needs to be processed efficiently without sacrificing accuracy.",
+          "Personalized educational platforms that adjust the complexity of problems based on the user's current performance to optimize learning without overburdening the student.",
+          "Autonomous vehicles that need to make split-second decisions based on the complexity of the driving environment, ensuring safety without unnecessary computational overhead."
+        ],
+        "limitations": [
+          "The method may not be as effective for highly dynamic environments where the complexity of samples can change rapidly.",
+          "Potential scalability issues with very large datasets or high-dimensional inputs."
+        ]
+      },
+      "swot": {
+        "strengths": [
+          "Efficient use of computational resources during test time",
+          "Improved accuracy and stability in visual reasoning tasks"
+        ],
+        "weaknesses": [
+          "Potential complexity in implementation and integration with existing systems",
+          "May require significant computational resources during the training phase to learn the optimal computation allocation"
+        ],
+        "opportunities": [
+          "Application in edge computing where computational resources are limited",
+          "Integration with other AI models to enhance their efficiency without compromising performance"
+        ],
+        "threats": [
+          "Rapid advancements in AI that could render the current approach obsolete",
+          "Competition from other methods that may offer similar efficiency improvements"
+        ]
+      },
+      "startupIdea": {
+        "startupName": "OptiCompute",
+        "oneLiner": "Optimized computation allocation for real-time decision-making systems, specifically designed for edge environments.",
+        "theHook": "With the increasing demand for real-time processing in edge computing and IoT devices, there's a critical need for systems that can efficiently allocate computational resources without compromising on performance.",
+        "targetUser": {
+          "persona": "Edge computing engineer at a smart city infrastructure company",
+          "painPoint": "Struggling to balance computational efficiency with the need for real-time data processing in their IoT devices.",
+          "currentAlternatives": "Currently using general-purpose computing models that are either too slow or too computationally expensive for their needs."
+        },
+        "coreTech": "Test time training method for determining optimal computation and the Conv-LiGRU architecture",
+        "product": {
+          "coreFeature": "Dynamic computational resource allocation for real-time systems based on sample complexity",
+          "differentiation": "Unlike traditional models, OptiCompute significantly reduces unnecessary computation, leading to faster and more efficient processing."
+        },
+        "business": {
+          "pricingModel": "$X/device/mo based on the number of processing units required",
+          "gtm": "Partner with edge computing hardware manufacturers to integrate OptiCompute into their devices, and offer a SaaS model for real-time data processing services."
+        },
+        "metrics": {
+          "novelty": "High",
+          "competition": "Medium",
+          "confidence": 8,
+          "mvpMonths": 3
+        }
       }
     },
-    "mode": "saas",
     "meta": {
-      "title": "SaaS: a platform that conv"
-    }
+      "title": "Learning to Stop Overthinking at Test Time",
+      "authors": [
+        "Hieu Tran Bao",
+        "Nguyen Cong Dat",
+        "Nguyen Duc Anh",
+        "Hoang Thanh-Tung"
+      ],
+      "published": "2025-02-16T02:17:05Z",
+      "abstract": "Test time scaling is currently one of the most active research areas that shows promise after training time scaling has reached its limits. Deep-thinking (DT) models are a class of recurrent models that can perform easy-to-hard generalization by assigning more compute to harder test samples. However, due to their inability to determine the complexity of a test sample, DT models have to use a large amount of computation for both easy and hard test samples. Excessive test time computation is wasteful and can cause the ``overthinking'' problem where more test time computation leads to worse results. In this paper, we introduce a test time training method for determining the optimal amount of computation needed for each sample during test time. We also propose Conv-LiGRU, a novel recurrent architecture for efficient and robust visual reasoning. Extensive experiments demonstrate that Conv-LiGRU is more stable than DT, effectively mitigates the ``overthinking'' phenomenon, and achieves superior accuracy."
+    },
+    "mode": "arxiv"
   }
 }

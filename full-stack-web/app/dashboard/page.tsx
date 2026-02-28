@@ -10,6 +10,12 @@ import type { ForgeUser } from "@/lib/types";
 type AppMode = "paper" | "saas";
 type Tab = "analysis" | "competitors" | "suggestions";
 
+const AVAILABLE_MODELS = [
+    { id: "amazon:amazon.nova-lite-v1:0", name: "AWS Bedrock Nova 2 Lite", provider: "amazon" },
+    { id: "openai:gpt-4o", name: "GPT-4o", provider: "openai" },
+    { id: "anthropic:claude-3-5-sonnet-latest", name: "Claude 3.5 Sonnet", provider: "anthropic" },
+];
+
 interface Session {
     id: string;
     mode: AppMode;
@@ -145,6 +151,7 @@ export default function DashboardPage() {
     const router = useRouter();
     const [user, setUser] = useState<ForgeUser | null>(null);
     const [mode, setMode] = useState<AppMode>("paper");
+    const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0].id);
     const [sessions, setSessions] = useState<Session[]>([]);
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
     const [input, setInput] = useState("");
@@ -180,10 +187,17 @@ export default function DashboardPage() {
         setStreamOutput("");
 
         try {
+            const payload = {
+                ...meta,
+                model: selectedModel,
+                arxivId: meta.title,  // the id gets parsed or passed here if tracked
+                userId: user?.id || "anonymous"
+            };
+
             const res = await fetch("/api/analyze", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(meta),
+                body: JSON.stringify(payload),
             });
 
             if (!res.ok || !res.body) throw new Error(`Analysis failed: ${res.status}`);
@@ -205,9 +219,11 @@ export default function DashboardPage() {
                         if (ev.type === "delta") setStreamOutput(ev.text);
                         if (ev.type === "done") {
                             const data: AnalysisData = typeof ev.analysis === "string" ? JSON.parse(ev.analysis) : ev.analysis;
-                            const updated = sessions.map(s => s.id === sessionId ? { ...s, data, meta } : s);
-                            setSessions(updated);
-                            saveSessions(updated);
+                            setSessions(prev => {
+                                const updated = prev.map(s => s.id === sessionId ? { ...s, data, meta } : s);
+                                saveSessions(updated);
+                                return updated;
+                            });
                             setProgress(100);
                         }
                         if (ev.type === "error") throw new Error(ev.message);
@@ -218,12 +234,14 @@ export default function DashboardPage() {
             setProgress(85);
             setStatusText("Generating alternatives...");
 
-            const updated = sessions.map(s => s.id === sessionId ? {
-                ...s,
-                data: { ...s.data, suggestions: generateMockSuggestions() }
-            } : s);
-            setSessions(updated);
-            saveSessions(updated);
+            setSessions(prev => {
+                const updated = prev.map(s => s.id === sessionId ? {
+                    ...s,
+                    data: { ...s.data, suggestions: generateMockSuggestions() }
+                } : s);
+                saveSessions(updated);
+                return updated;
+            });
 
         } catch (e) {
             setError(e instanceof Error ? e.message : "Analysis failed");
@@ -240,66 +258,75 @@ export default function DashboardPage() {
         { startupName: "Variant C", oneLiner: "Developer tool focused", angle: "product" },
     ];
 
-    const runSaasBoost = async (sessionId: string) => {
+    const runSaasBoost = async (sessionId: string, description: string) => {
         setAnalyzing(true);
         setProgress(20);
         setStatusText("Scouting relevant research...");
+        setStreamOutput("");
 
-        await new Promise(r => setTimeout(r, 1500));
-        setProgress(50);
+        try {
+            const res = await fetch("/api/analyze-saas", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ description, model: selectedModel }),
+            });
 
-        const mockPapers: SaasPaper[] = [
-            {
-                arxivId: "2310.12345",
-                title: "Efficient Transformer Inference",
-                year: "2023",
-                relevance: "Enables faster model serving",
-                boostIdea: "Add real-time inference API",
-                implementationHint: "Use quantized weights",
-                difficulty: "Medium",
-                impact: "High"
-            },
-            {
-                arxivId: "2401.56782",
-                title: "RAG Systems at Scale",
-                year: "2024",
-                relevance: "Improve context retrieval",
-                boostIdea: "Hybrid search + reranking",
-                implementationHint: "Combine BM25 with embeddings",
-                difficulty: "Easy",
-                impact: "Medium"
+            if (!res.ok || !res.body) throw new Error(`SaaS Boost failed: ${res.status}`);
+
+            const reader = res.body.getReader();
+            const dec = new TextDecoder();
+            let buf = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += dec.decode(value, { stream: true });
+                const lines = buf.split("\n");
+                buf = lines.pop() ?? "";
+                for (const line of lines) {
+                    if (!line.startsWith("data: ")) continue;
+                    try {
+                        const ev = JSON.parse(line.slice(6));
+                        if (ev.type === "delta") setStreamOutput(ev.text);
+                        if (ev.type === "done") {
+                            const data: AnalysisData = typeof ev.analysis === "string" ? JSON.parse(ev.analysis) : ev.analysis;
+                            setSessions(prev => {
+                                const updated = prev.map(s => s.id === sessionId ? { ...s, data } : s);
+                                saveSessions(updated);
+                                return updated;
+                            });
+                            setProgress(100);
+                        }
+                        if (ev.type === "error") throw new Error(ev.message);
+                    } catch { /* partial */ }
+                }
             }
-        ];
-
-        const data: AnalysisData = {
-            overallStrategy: "Leverage recent advances in efficient inference and retrieval to build a differentiated AI product.",
-            papers: mockPapers
-        };
-
-        const updated = sessions.map(s => s.id === sessionId ? { ...s, data } : s);
-        setSessions(updated);
-        saveSessions(updated);
-
-        setProgress(100);
-        setAnalyzing(false);
-        setProgress(0);
-        setStatusText("");
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "SaaS integration failed");
+        } finally {
+            setAnalyzing(false);
+            setProgress(0);
+            setStatusText("");
+        }
     };
 
-    const handleAnalyze = async () => {
-        if (!input.trim()) return;
+    const handleAnalyze = async (manualId?: string, manualMode?: AppMode, manualInput?: string) => {
+        const targetMode = manualMode || mode;
+        const targetInput = manualInput || input;
+
+        if (!targetInput.trim()) return;
         setError("");
 
-        const sessionId = mode === "paper" 
-            ? extractArxivId(input) || `manual_${Date.now()}`
+        const sessionId = targetMode === "paper"
+            ? extractArxivId(targetInput) || `manual_${Date.now()}`
             : `saas_${Date.now()}`;
 
         let meta: ArxivMeta | undefined;
 
-        if (mode === "paper" && extractArxivId(input)) {
+        if (targetMode === "paper" && extractArxivId(targetInput)) {
             setLoading(true);
             try {
-                const res = await fetch(`/api/arxiv?id=${encodeURIComponent(extractArxivId(input)!)}`);
+                const res = await fetch(`/api/arxiv?id=${encodeURIComponent(extractArxivId(targetInput)!)}`);
                 if (!res.ok) throw new Error("Failed to fetch paper");
                 meta = await res.json();
             } catch (e) {
@@ -312,12 +339,12 @@ export default function DashboardPage() {
 
         const newSession: Session = {
             id: sessionId,
-            mode,
-            title: mode === "paper" 
-                ? (meta?.title?.slice(0, 40) + "...") || input
-                : input.slice(0, 40) + "...",
+            mode: targetMode,
+            title: targetMode === "paper"
+                ? (meta?.title?.slice(0, 40) + "...") || targetInput
+                : targetInput.slice(0, 40) + "...",
             timestamp: new Date().toISOString(),
-            arxivId: extractArxivId(input) || undefined,
+            arxivId: extractArxivId(targetInput) || undefined,
             meta,
         };
 
@@ -326,10 +353,10 @@ export default function DashboardPage() {
         saveSessions(updated);
         setCurrentSessionId(sessionId);
 
-        if (mode === "paper" && meta) {
+        if (targetMode === "paper" && meta) {
             await runAnalysis(sessionId, meta);
-        } else if (mode === "saas") {
-            await runSaasBoost(sessionId);
+        } else if (targetMode === "saas") {
+            await runSaasBoost(sessionId, targetInput);
         }
     };
 
@@ -357,25 +384,58 @@ export default function DashboardPage() {
     };
 
     const runCompetitorSearch = async () => {
-        if (!currentSession?.data?.startupIdea) return;
+        if (!currentSession?.data?.startupIdea || !currentSession?.data?.targetUser) return;
         setResearchingCompetitors(true);
-        await new Promise(r => setTimeout(r, 2500));
-        
-        const mockCompetitors: CompetitorIntelligence = {
-            marketVerdict: "This space is relatively uncrowded with few direct competitors.",
-            competitors: [
-                { name: "IdeaForge", url: "https://ideaforge.ai", description: "AI business idea generator", pricing: "$49/mo", differentiation: "We have deeper research backing" },
-                { name: "StartupGPT", url: "https://startupgpt.com", description: "YC-style idea scorer", pricing: "Free", differentiation: "More actionable MVP guidance" }
-            ]
-        };
+        setError("");
 
-        const updated = sessions.map(s => s.id === currentSessionId ? {
-            ...s,
-            data: { ...s.data!, competitorIntelligence: mockCompetitors }
-        } : s);
-        setSessions(updated);
-        saveSessions(updated);
-        setResearchingCompetitors(false);
+        try {
+            const idea = currentSession.data.startupIdea;
+            const target = currentSession.data.startupIdea.targetUser;
+            const ideaContext = `Idea Name: ${idea.startupName}\nOne-liner: ${idea.oneLiner}\nTarget User: ${target.persona}\nCore Feature: ${idea.product?.coreFeature || "Unknown"}`;
+
+            const res = await fetch("/api/analyze-competitors", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ideaContext, model: selectedModel }),
+            });
+
+            if (!res.ok || !res.body) throw new Error(`Competitor search failed: ${res.status}`);
+
+            const reader = res.body.getReader();
+            const dec = new TextDecoder();
+            let buf = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += dec.decode(value, { stream: true });
+                const lines = buf.split("\n");
+                buf = lines.pop() ?? "";
+                for (const line of lines) {
+                    if (!line.startsWith("data: ")) continue;
+                    try {
+                        const ev = JSON.parse(line.slice(6));
+                        // Stream output not strictly needed for this simple UI update currently. 
+                        if (ev.type === "done") {
+                            const compData: CompetitorIntelligence = typeof ev.analysis === "string" ? JSON.parse(ev.analysis) : ev.analysis;
+                            setSessions(prev => {
+                                const updated = prev.map(s => s.id === currentSessionId ? {
+                                    ...s,
+                                    data: { ...s.data!, competitorIntelligence: compData }
+                                } : s);
+                                saveSessions(updated);
+                                return updated;
+                            });
+                        }
+                        if (ev.type === "error") throw new Error(ev.message);
+                    } catch { /* partial */ }
+                }
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Competitor search failed");
+        } finally {
+            setResearchingCompetitors(false);
+        }
     };
 
     if (!user) return (
@@ -412,6 +472,21 @@ export default function DashboardPage() {
             <div className="flex-1 flex overflow-hidden">
                 {/* Sidebar */}
                 <aside className="w-[280px] border-r border-border bg-surface/40 backdrop-blur-sm flex flex-col shrink-0">
+                    {/* Model Selector */}
+                    <div className="p-3 border-b border-border">
+                        <label className="text-[0.6rem] font-mono text-muted uppercase tracking-wider mb-1.5 block">AI Intelligence</label>
+                        <select
+                            value={selectedModel}
+                            onChange={(e) => setSelectedModel(e.target.value)}
+                            className="field text-[0.7rem] bg-bg cursor-pointer"
+                            disabled={analyzing}
+                        >
+                            {AVAILABLE_MODELS.map(m => (
+                                <option key={m.id} value={m.id}>{m.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     {/* Mode Toggle */}
                     <div className="p-3 border-b border-border">
                         <div className="flex gap-[1px] bg-bg rounded-md p-[2px]">
@@ -544,7 +619,7 @@ export default function DashboardPage() {
                                 /* SaaS Mode Results */
                                 <div className="space-y-4">
                                     {currentSession.data?.overallStrategy && (
-                                        <div className="card p-4 border-l-4 border-accent">
+                                        <div className="card p-4">
                                             <SectionLabel>Overall R&D Strategy</SectionLabel>
                                             <p className="text-text text-[0.85rem] leading-relaxed mt-1">
                                                 {currentSession.data.overallStrategy}
@@ -568,6 +643,18 @@ export default function DashboardPage() {
                                             <div className="flex gap-2">
                                                 <span className="text-[0.6rem] font-mono px-2 py-0.5 bg-surface rounded border border-border">Difficulty: {paper.difficulty}</span>
                                                 <span className="text-[0.6rem] font-mono px-2 py-0.5 bg-surface rounded border border-border">Impact: {paper.impact}</span>
+                                            </div>
+                                            <div className="mt-4 flex justify-end">
+                                                <button
+                                                    onClick={() => {
+                                                        setMode("paper");
+                                                        setInput(paper.arxivId);
+                                                        handleAnalyze(undefined, "paper", paper.arxivId);
+                                                    }}
+                                                    className="text-[0.65rem] font-mono text-accent hover:underline flex items-center gap-1"
+                                                >
+                                                    Distill this paper →
+                                                </button>
                                             </div>
                                         </div>
                                     ))}
@@ -796,7 +883,7 @@ export default function DashboardPage() {
                                 {mode === "paper" ? "Distill Intelligence." : "Boost Your SaaS."}
                             </div>
                             <p className="text-muted text-[0.9rem] max-w-md mb-6">
-                                {mode === "paper" 
+                                {mode === "paper"
                                     ? "Enter an arXiv paper to find the best startup idea. We'll analyze the research and generate actionable insights."
                                     : "Describe your SaaS product to find the most relevant academic research to give it a technical edge."
                                 }

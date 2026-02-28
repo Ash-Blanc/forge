@@ -10,12 +10,14 @@ from tools import SemanticScholarTools
 # ── Available Models ──────────────────────────────────────────────────────────
 
 AVAILABLE_MODELS = {
-    "AWS Bedrock — Nova 2 Lite": "amazon.nova-lite-v1:0",
+    "Cerebras — Llama 3.1 70B": "cerebras:llama3.1-70b",
+    "Cerebras — Llama 3.1 8B (fast)": "cerebras:llama3.1-8b",
+    "Cerebras — GPT OSS 120B": "cerebras:gpt-oss-120b",
     "OpenAI — GPT-4o Mini": "openai:gpt-4o-mini",
     "Anthropic — Claude Sonnet": "anthropic:claude-sonnet-4-20250514",
 }
 
-DEFAULT_MODEL_KEY = "AWS Bedrock — Nova 2 Lite"
+DEFAULT_MODEL_KEY = "Cerebras — Llama 3.1 70B"
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
@@ -81,9 +83,8 @@ A user has proposed a new technical startup idea. Your job is to search the live
 
 Instructions:
 1. Search the web using the provided tools to find companies solving the same pain point or building the same core feature.
-2. IMPORTANT: When using tools like parallel_search, the parameter `search_queries` MUST be a valid JSON list of strings (e.g. `["query 1", "query 2"]`).
-3. Select the top 2 to 3 most relevant competitors.
-4. If no direct competitors exist, find the closest platform or substitute they are using today.
+2. Select the top 2 to 3 most relevant competitors.
+3. If no direct competitors exist, find the closest platform or substitute they are using today.
 
 OUTPUT JSON ONLY. Structure:
 {
@@ -151,41 +152,10 @@ CRITICAL: You MUST output ONLY raw JSON. Do not include ANY conversational text 
 # ── Agent runners ─────────────────────────────────────────────────────────────
 
 
-def get_model(model_id_or_obj):
-    if not isinstance(model_id_or_obj, str):
-        return model_id_or_obj
-    
-    provider = "amazon"
-    actual_id = model_id_or_obj
-    if ":" in model_id_or_obj:
-        provider, actual_id = model_id_or_obj.split(":", 1)
-    
-    if provider == "cerebras":
-        from agno.models.cerebras import Cerebras
-        return Cerebras(id=actual_id)
-    elif provider == "openai":
-        from agno.models.openai import OpenAIChat
-        return OpenAIChat(id=actual_id)
-    elif provider == "anthropic":
-        from agno.models.anthropic import Claude
-        return Claude(id=actual_id)
-    elif provider == "amazon":
-        import os
-        import boto3
-        from agno.models.aws.bedrock import AwsBedrock
-        boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
-        return AwsBedrock(id=actual_id, session=boto_session)
-    else:
-        import os
-        import boto3
-        from agno.models.aws.bedrock import AwsBedrock
-        boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
-        return AwsBedrock(id="amazon.nova-lite-v1:0", session=boto_session)
-
 def run_analysis_agent(prompt: str, model: str) -> tuple[str, dict | None]:
     """Run the main analysis agent. Returns (raw_text, parsed_dict_or_none)."""
     agent = Agent(
-        model=get_model(model),
+        model=model,
         description=SYSTEM_PROMPT,
         markdown=False,
     )
@@ -202,9 +172,9 @@ def run_analysis_agent(prompt: str, model: str) -> tuple[str, dict | None]:
 def run_competitor_agent(idea_context: str, model: str) -> tuple[str, dict | None]:
     """Run the competitor research agent with Parallel.ai search tools."""
     agent = Agent(
-        model=get_model(model),
+        model=model,
         description=COMPETITOR_RESEARCH_PROMPT,
-        tools=[ParallelTools(enable_search=True, enable_extract=True, max_results=3)],
+        tools=[ParallelTools(enable_search=True, enable_extract=True, max_results=5)],
         markdown=False,
     )
 
@@ -222,7 +192,7 @@ def run_suggestion_agent(
 ) -> tuple[str, dict | None]:
     """Run the suggestion agent for alternative ideas."""
     agent = Agent(
-        model=get_model(model),
+        model=model,
         description=SUGGESTION_PROMPT,
         markdown=False,
     )
@@ -240,9 +210,9 @@ def run_suggestion_agent(
 def run_saas_boost_agent(saas_description: str, model: str) -> tuple[str, dict | None]:
     """Run the SaaS → Papers agent. Uses both Semantic Scholar API and Arxiv Tools to find papers."""
     agent = Agent(
-        model=get_model(model),
+        model=model,
         description=SAAS_TO_PAPERS_PROMPT,
-        tools=[SemanticScholarTools()],
+        tools=[SemanticScholarTools(), ArxivTools(enable_search_arxiv=True, enable_read_arxiv_papers=False)],
         markdown=False,
     )
 

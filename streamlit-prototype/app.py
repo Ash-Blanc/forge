@@ -2,9 +2,13 @@ import streamlit as st
 import re
 import json
 import os
+import urllib.request
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from dotenv import load_dotenv
 from utils import parse_agent_json, extract_arxiv_id, fetch_arxiv_meta, build_saas_prompt
+from agno.agent import Agent
+from agno.tools.parallel import ParallelTools
 from agents import (
     AVAILABLE_MODELS,
     DEFAULT_MODEL_KEY,
@@ -12,6 +16,7 @@ from agents import (
     run_competitor_agent,
     run_suggestion_agent,
     run_saas_boost_agent,
+    get_model,
     SYSTEM_PROMPT,
     COMPETITOR_RESEARCH_PROMPT,
     SUGGESTION_PROMPT,
@@ -417,7 +422,7 @@ def render_main_idea(data: dict, selected_model: str):
                         try:
                             # Set up a new agent with Parallel.ai search tools
                             comp_agent = Agent(
-                                model=selected_model,
+                                model=get_model(selected_model),
                                 description=COMPETITOR_RESEARCH_PROMPT,
                                 tools=[ParallelTools(enable_search=True, enable_extract=True, max_results=5)],
                                 markdown=False,
@@ -642,7 +647,7 @@ elif analyze_btn and st.session_state.app_mode == "📄 Paper → Idea" and arxi
 
             try:
                 agent = Agent(
-                    model=selected_model,
+                    model=get_model(selected_model),
                     description=SYSTEM_PROMPT,
                     markdown=False,
                 )
@@ -704,16 +709,9 @@ elif analyze_btn and st.session_state.app_mode == "📄 Paper → Idea" and arxi
                                 if content:
                                     suggestion_raw += content
 
-                            clean_sugg = re.sub(
-                                r"```json\s*", "", suggestion_raw, flags=re.IGNORECASE
-                            )
-                            clean_sugg = re.sub(r"```\s*", "", clean_sugg).strip()
-                            match_sugg = re.search(r"\{[\s\S]*\}", clean_sugg)
-
-                            if match_sugg:
-                                sugg_data = json.loads(match_sugg.group(0))
-                                suggestions = sugg_data.get("suggestions", [])
-                                data["suggestions"] = suggestions
+                            sugg_data = parse_agent_json(suggestion_raw)
+                            if sugg_data and "suggestions" in sugg_data:
+                                data["suggestions"] = sugg_data["suggestions"]
                                 st.session_state.sessions[session_id]["data"] = data
                         except Exception as e:
                             st.caption(f"Could not generate suggestions: {e}")
