@@ -1,0 +1,31 @@
+name: Sync tasks.md → Notion
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - tasks.md
+
+jobs:
+  push-to-notion:
+    runs-on: ubuntu-latest
+    # Skip commits that were made BY the Notion sync itself (prevents loop)
+    if: "!contains(github.event.head_commit.message, '[notion-sync]')"
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Push tasks.md to Notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
+        run: python scripts/sync_notion.py push
