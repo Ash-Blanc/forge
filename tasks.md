@@ -1,120 +1,125 @@
 # 📋 FORGE: Task Tracker
 
-This document tracks development tasks for FORGE — an AI platform that distills arXiv papers into actionable SaaS opportunities.
-
-## Current Strategy
-
-We iterate on pipelines and agents in the **Streamlit prototype** before finalizing in the full-stack-web app.
+Development tasks for FORGE — an AI platform that distills arXiv papers into actionable SaaS opportunities.
 
 ---
 
-## Streamlit Prototype (`streamlit-prototype/`)
+## Quick Reference
 
-### Pipeline Iteration
-
-- [ ] **Refine arXiv ingestion** - Handle edge cases (invalid IDs, rate limiting, missing abstracts)
-- [ ] **Improve agent prompts** - Test different system prompts for better SaaS blueprints
-- [ ] **Add model options** - Support multiple LLMs (Cerebras, Anthropic, OpenAI)
-- [ ] **Enhance output parsing** - Handle malformed JSON from agent responses
-- [ ] **Add paper search** - Allow searching by keywords, not just arXiv ID
-- [ ] **Batch processing** - Analyze multiple papers and compare outputs
-
-### UI/UX Improvements
-
-- [ ] **Better loading states** - Show detailed progress during analysis
-- [ ] **Export options** - Download blueprint as PDF/Markdown
-- [ ] **History** - Save and revisit previous analyses
-- [ ] **Comparison view** - Side-by-side comparison of multiple paper analyses
-
-### Testing
-
-- [ ] **Add pytest tests** - Test arXiv fetching, prompt building, JSON parsing
-- [ ] **Test with diverse papers** - Math-heavy, architecture-heavy, survey papers
-- [ ] **Prompt evaluation** - Measure output quality with different prompts
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Frontend (localhost:3000) |
+| `cd agents && uvicorn server:app --port 8321 --reload` | Python Agent API |
+| `npm run lint` | Lint frontend |
+| `npm run build` | Production build |
 
 ---
 
-## Full-Stack Web App (`full-stack-web/`)
+## 🚧 In Progress
 
-### Python Agent Service (`agents/`)
-
-- [ ] **Migrate agent from Streamlit** - Port the Agno agent logic to FastAPI
-- [ ] **Add Supabase storage** - Save paper analyses to database
-- [ ] **API endpoints**:
-  - `POST /analyze` - Submit arXiv ID for analysis
-  - `GET /analyses` - List user's analyses
-  - `GET /analyses/:id` - Get specific analysis
-- [ ] **Add authentication** - Secure agent endpoints
-
-### Frontend (`app/`)
-
-- [ ] **Dashboard improvements** - Show paper feed with filters
-- [ ] **Paper detail view** - Full analysis display matching Streamlit output
-- [ ] **Claim & build workflow** - Allow users to claim ideas and track progress
-- [ ] **Social features** - Comments, follows, build updates
-- [ ] **User profiles** - Show user's claimed ideas and contributions
-
-### Database
-
-- [ ] **Design schema** - Users, papers, claims, updates, comments tables
-- [ ] **Add RLS policies** - Secure row-level security
-- [ ] **Seed data** - Populate with example analyses
-
-### Testing
-
-- [ ] **Add Vitest** - Set up frontend testing framework
-- [ ] **Add pytest** - Test FastAPI endpoints
-- [ ] **E2E tests** - Critical user flows
+- [ ] Dashboard page with paper feed
+- [ ] Paper detail view with NOVA scores
+- [ ] Submit modal for new arXiv papers
 
 ---
 
-## Environment Setup
+## 📋 To Do
 
-### Streamlit Prototype
-```bash
-cd streamlit-prototype
-pip install -r requirements.txt
-streamlit run app.py
-```
+### Frontend (`full-stack-web/app/`)
 
-### Full-Stack Web
-```bash
-cd full-stack-web
-npm install
-npm run dev  # Frontend on :3000
+**Pages**
+- [ ] Dashboard page - paper feed with filters
+- [ ] Paper detail view - full analysis display
+- [ ] Onboarding flow for new users
 
-cd agents
-pip install -r requirements.txt
-uvicorn server:app --port 8321 --reload  # Agent API on :8321
-```
+**Components**
+- [ ] PaperCard - display paper info + NOVA score
+- [ ] DetailPanel - show full analysis
+- [ ] SubmitModal - input arXiv ID for analysis
+- [ ] StatusBadge - Open/Building/Launched states
+- [ ] FilterBar - filter by status, score, date
+
+**Features**
+- [ ] Claim & build workflow
+- [ ] Build updates (progress tracking)
+- [ ] User profiles
+
+### Backend (`full-stack-web/agents/`)
+
+- [ ] `POST /analyze` - Submit arXiv ID for analysis
+- [ ] `GET /papers` - List analyzed papers
+- [ ] `GET /papers/:id` - Get specific analysis
+- [ ] Authentication for protected endpoints
+- [ ] Rate limiting
+
+### Database (`Supabase`)
+
+- [ ] Users table
+- [ ] Papers table (arXiv data + analysis)
+- [ ] Claims table (user → paper)
+- [ ] Updates table (build progress)
+- [ ] RLS policies
+
+### Streamlit Prototype (`streamlit-prototype/`)
+
+> ⚠️ **Deprecated** - Use full-stack-web for new development
+
+- [ ] Mark as deprecated in docs
+- [ ] Archive or remove
 
 ---
 
-## Running Tests
+## ✅ Done
 
-### Python (prototype)
-```bash
-cd streamlit-prototype
-pytest -v
-```
+### Foundation
+- [x] Next.js 16 setup with Tailwind CSS v4
+- [x] Supabase client configuration
+- [x] TypeScript types for papers
+- [x] arXiv API integration
+- [x] Python FastAPI agent service
 
-### Frontend (when configured)
-```bash
-cd full-stack-web
-npm test -- --run
-```
-
-### Agent API (when configured)
-```bash
-cd full-stack-web/agents
-pytest -v
-```
+### Initial Features
+- [x] Landing page
+- [x] Basic dashboard layout
+- [x] Claude API integration for analysis
 
 ---
 
 ## Priority Order
 
-1. **Immediate**: Refine agent prompts and fix parsing in Streamlit prototype
-2. **Short-term**: Add model options, export, and history to prototype
-3. **Medium-term**: Design database schema, build FastAPI agent service
-4. **Long-term**: Full frontend with social features, migrate from prototype
+### High
+1. Paper submission flow (arXiv → analyze → display)
+2. Dashboard with paper feed
+3. NOVA score display
+
+### Medium
+4. Claim & build tracking
+5. User authentication
+6. Build updates/comments
+
+### Low
+7. Social features (follow, share)
+8. Advanced filtering
+9. Export options
+
+---
+
+## Testing
+
+Not yet configured. To add:
+
+```bash
+# Frontend
+npm install -D vitest @testing-library/react
+
+# Python
+pip install pytest
+```
+
+---
+
+## Notes
+
+- Run both frontend (`npm run dev`) and agent (`uvicorn server:app --port 8321`) for full functionality
+- Use `npm run lint` and `npm run build` before committing
+- Check `.env.local.example` for required environment variables
