@@ -178,11 +178,19 @@ def parse_agent_json(raw_text: str) -> dict | None:
 
 def build_prompt(meta: dict) -> str:
     """Build the user prompt from paper metadata."""
-    return f"""Analyze this paper and generate both a paper analysis and startup idea.
+    return f"""Analyze this paper faithfully and produce execution-ready commercialization paths.
 
 Title: {meta.get("title", "")}
 Authors: {", ".join(meta.get("authors", []))}
 Abstract: {meta.get("abstract", "")[:2000]}
+
+Requirements:
+- Start with a relatable intro overview (2-3 sentences, plain language).
+- Capture true paper essence (problem, method, novelty, evidence, limits).
+- Avoid generic statements and hype.
+- If evidence is missing, write "Not explicitly stated".
+- Generate exactly 3 paths: platform, feature, api_plugin.
+- Recommend one path using feasibility-first logic and explain why.
 
 Return ONLY valid JSON."""
 
@@ -200,7 +208,7 @@ Search arXiv and the web to find REAL papers with valid arXiv IDs. Return JSON o
 
 
 def generate_markdown_report(data: dict, meta: dict, mode: str = "arxiv") -> str:
-    """Generate a clean Markdown report from analysis data."""
+    """Generate a concise, decision-focused Markdown report."""
     lines = []
     
     if mode == "saas":
@@ -208,29 +216,24 @@ def generate_markdown_report(data: dict, meta: dict, mode: str = "arxiv") -> str
         lines.append(f"**Target SaaS:** {meta.get('title', '').replace('SaaS: ', '')}  \n")
         lines.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
         
-        lines.append("---\n## 🎯 Overall R&D Strategy\n")
+        lines.append("---\n## Strategy\n")
         lines.append(f"{data.get('overallStrategy', '')}\n")
         
-        lines.append("---\n## 📚 Recommended Papers\n")
-        for p in data.get("papers", []):
+        lines.append("---\n## Top 3 Papers\n")
+        for p in data.get("papers", [])[:3]:
             lines.append(f"### {p.get('title', 'Unknown')}")
             lines.append(f"- **arXiv ID:** [{p.get('arxivId', '')}](https://arxiv.org/abs/{p.get('arxivId', '')}) ({p.get('year', '')})")
-            lines.append(f"- **Relevance:** {p.get('relevance', '')}")
             lines.append(f"- **Boost Idea:** {p.get('boostIdea', '')}")
-            lines.append(f"- **Implementation:** _{p.get('implementationHint', '')}_")
-            lines.append(f"- **Difficulty:** {p.get('difficulty', '')} | **Impact:** {p.get('impact', '')}\n")
+            lines.append(f"- **Implementation Hint:** {p.get('implementationHint', '')}\n")
             
         return "\n".join(lines)
 
 
-    # Regular arXiv mode
+    # Regular arXiv mode (concise)
     paper = data.get("paperAnalysis", {})
-    swot = data.get("swot", {})
     idea = data.get("startupIdea", {})
-    target = idea.get("targetUser", {})
-    metrics = idea.get("metrics", {})
+    opportunities = data.get("opportunities", [])
     competitors = data.get("competitorIntelligence", {})
-    suggestions = data.get("suggestions", [])
 
     lines.append(f"# FORGE Analysis: {meta.get('title', 'Unknown Paper')}\n")
     lines.append(
@@ -240,97 +243,69 @@ def generate_markdown_report(data: dict, meta: dict, mode: str = "arxiv") -> str
         f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
     )
 
-    # Paper Analysis
-    lines.append("---\n## 📝 Paper Analysis\n")
+    lines.append("---\n## Overview\n")
+    intro_overview = data.get("paperAnalysis", {}).get("introOverview", "")
+    if intro_overview:
+        lines.append(f"{intro_overview}\n")
+
+    lines.append("## Summary\n")
     if paper.get("summary"):
-        lines.append(f"**Summary:** {paper['summary']}\n")
+        lines.append(f"{paper['summary']}\n")
     if paper.get("coreBreakthrough"):
-        lines.append(f"**Core Breakthrough:** {paper['coreBreakthrough']}\n")
-    if paper.get("keyInnovations"):
-        lines.append("**Key Innovations:**")
-        for inn in paper["keyInnovations"]:
-            lines.append(f"- {inn}")
-        lines.append("")
-    if paper.get("applications"):
-        lines.append("**Applications:**")
-        for app in paper["applications"]:
-            lines.append(f"- {app}")
-        lines.append("")
-    if paper.get("limitations"):
-        lines.append("**Limitations:**")
-        for lim in paper["limitations"]:
-            lines.append(f"- {lim}")
+        lines.append(f"- **Core Breakthrough:** {paper['coreBreakthrough']}")
+    lines.append("")
+
+    if opportunities:
+        lines.append("---\n## Recommendation\n")
+        recommended_path = data.get("recommendedPathComputed") or data.get("recommendedPath", "")
+        recommendation_reason = data.get("recommendationReasonComputed") or data.get("recommendationReason", "")
+        if recommended_path:
+            lines.append(f"**Recommended Path:** `{recommended_path}`")
+        if recommendation_reason:
+            lines.append(f"**Reason:** {recommendation_reason}")
         lines.append("")
 
-    # SWOT
-    if swot:
-        lines.append("---\n## ⚖️ SWOT Analysis\n")
-        for label, key, icon in [
-            ("Strengths", "strengths", "✓"),
-            ("Weaknesses", "weaknesses", "✗"),
-            ("Opportunities", "opportunities", "+"),
-            ("Threats", "threats", "⚠"),
-        ]:
-            items = swot.get(key, [])
-            if items:
-                lines.append(f"**{label}:**")
-                for item in items:
-                    lines.append(f"- {icon} {item}")
-                lines.append("")
-
-    # Startup Idea
-    if idea:
-        lines.append("---\n## 🚀 Startup Idea\n")
-        lines.append(f"### {idea.get('startupName', 'TBD')}\n")
-        lines.append(f"**{idea.get('oneLiner', '')}**\n")
-        lines.append(f"*{idea.get('theHook', '')}*\n")
-
-        lines.append(
-            f"| Novelty | Competition | Confidence | MVP |\n"
-            f"|---------|-------------|------------|-----|\n"
-            f"| {metrics.get('novelty', '?')} | {metrics.get('competition', '?')} "
-            f"| {metrics.get('confidence', '?')}/10 | {metrics.get('mvpMonths', '?')} months |\n"
-        )
-
-        if target:
-            lines.append("**Target User:**")
-            lines.append(f"- **Persona:** {target.get('persona', '')}")
-            lines.append(f"- **Pain Point:** {target.get('painPoint', '')}")
-            lines.append(
-                f"- **Current Alternatives:** {target.get('currentAlternatives', '')}\n"
+        lines.append("## Path Snapshot")
+        lines.append("| Path | Build (weeks) | Confidence | Feasibility |")
+        lines.append("|------|---------------|------------|-------------|")
+        if recommended_path:
+            sorted_ops = sorted(
+                opportunities,
+                key=lambda o: (
+                    0 if o.get("type") == recommended_path else 1,
+                    -(float(o.get("feasibilityScore", 0)) if str(o.get("feasibilityScore", "")).replace(".", "", 1).isdigit() else 0),
+                ),
             )
-
-        product = idea.get("product", {})
-        if product:
+        else:
+            sorted_ops = opportunities
+        for opp in sorted_ops[:3]:
             lines.append(
-                f"**Core Feature:** {product.get('coreFeature', '')}  \n"
-                f"**Differentiation:** {product.get('differentiation', '')}\n"
+                f"| {opp.get('type', '')} | {opp.get('buildScopeWeeks', '?')} | "
+                f"{opp.get('confidence', '?')}/10 | {opp.get('feasibilityScore', '?')}/10 |"
             )
+        lines.append("")
 
-        biz = idea.get("business", {})
-        if biz:
-            lines.append(
-                f"**Pricing:** {biz.get('pricingModel', '')}  \n"
-                f"**GTM:** {biz.get('gtm', '')}\n"
-            )
+        focus = sorted_ops[0]
+        lines.append("## Immediate Next Steps")
+        lines.append(f"1. Build first milestone: {focus.get('firstMilestone', 'Ship one usable flow.')}")
+        lines.append(f"2. Validate with target user: {focus.get('targetUser', {}).get('persona', 'TBD persona')}")
+        lines.append(f"3. Prove differentiator: {focus.get('product', {}).get('differentiation', focus.get('coreValue', 'TBD value'))}")
+        lines.append("")
+        lines.append("## Key Risks")
+        for r in focus.get("risks", [])[:3]:
+            lines.append(f"- {r}")
+        lines.append("")
+    elif idea:
+        lines.append("---\n## Recommendation\n")
+        lines.append(f"**Focus:** {idea.get('startupName', 'TBD')}")
+        lines.append(f"- {idea.get('oneLiner', '')}")
+        lines.append(f"- Core Feature: {idea.get('product', {}).get('coreFeature', '')}")
+        lines.append(f"- GTM: {idea.get('business', {}).get('gtm', '')}\n")
 
-    # Competitors
     if competitors:
-        lines.append("---\n## 🕵️ Competitor Intelligence\n")
+        lines.append("---\n## Market Signal\n")
         lines.append(f"**Market Verdict:** {competitors.get('marketVerdict', '')}\n")
-        for c in competitors.get("competitors", []):
-            lines.append(f"### {c.get('name', '?')}")
-            lines.append(f"- **URL:** {c.get('url', '')}")
-            lines.append(f"- **What they do:** {c.get('description', '')}")
-            lines.append(f"- **Pricing:** {c.get('pricing', 'Unknown')}")
-            lines.append(f"- **Why we win:** {c.get('differentiation', '')}\n")
-
-    # Suggestions
-    if suggestions:
-        lines.append("---\n## 💡 Alternative Ideas\n")
-        for s in suggestions:
-            lines.append(
-                f"- **{s.get('startupName', '?')}** — {s.get('oneLiner', '')} _{s.get('angle', '')}_"
-            )
+        for c in competitors.get("competitors", [])[:2]:
+            lines.append(f"- **{c.get('name', '?')}**: {c.get('description', '')}")
 
     return "\n".join(lines)

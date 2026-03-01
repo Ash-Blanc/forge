@@ -212,13 +212,255 @@ OUTPUT JSON ONLY - array of 3:
 
 
 def build_prompt(meta: dict) -> str:
-    return f"""Analyze this paper and generate both a paper analysis and startup idea.
+    return f"""Analyze this paper faithfully and produce execution-ready commercialization paths.
 
 Title: {meta.get("title", "")}
 Authors: {", ".join(meta.get("authors", []))}
 Abstract: {meta.get("abstract", "")[:5000]}
 
+Requirements:
+- Start with a relatable intro overview (2-3 sentences, plain language).
+- Capture essence: problem, method, novelty, evidence, limits.
+- Avoid generic statements; use specific technical detail.
+- If evidence is missing, write "Not explicitly stated".
+- Generate exactly 3 paths: platform, feature, api_plugin.
+- Recommend one path using feasibility-first logic and explain why.
+
 Return ONLY valid JSON."""
+
+
+PATH_TYPE_ORDER = ["feature", "api_plugin", "platform"]
+PATH_LABELS = {
+    "feature": "Niche Feature",
+    "api_plugin": "API / Plugin",
+    "platform": "Full Platform",
+}
+
+
+def _to_int(value, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _level_to_score(level: str, default: int = 5) -> int:
+    if not isinstance(level, str):
+        return default
+    normalized = level.strip().lower()
+    return {"low": 3, "medium": 6, "high": 9}.get(normalized, default)
+
+
+def _feasibility_score(opportunity: dict) -> float:
+    build_weeks = max(1, min(26, _to_int(opportunity.get("buildScopeWeeks"), 8)))
+    confidence = max(1, min(10, _to_int(opportunity.get("confidence"), 5)))
+    distribution = _level_to_score(opportunity.get("distributionEase"), default=5)
+    competition = _level_to_score(opportunity.get("competition"), default=6)
+
+    speed_score = max(1.0, 10.0 - min(10.0, float(build_weeks)))
+    competition_penalty = {"low": 0.0, "medium": 0.8, "high": 1.6}.get(
+        str(opportunity.get("competition", "")).strip().lower(),
+        0.8,
+    )
+    score = (0.45 * speed_score) + (0.35 * distribution) + (0.20 * confidence) - competition_penalty
+    return round(max(0.0, min(10.0, score)), 1)
+
+
+def _build_intro_overview(paper: dict) -> str:
+    intro = str(paper.get("introOverview", "")).strip()
+    if intro:
+        return intro
+
+    problem = str(paper.get("researchProblem", "")).strip()
+    method = str(paper.get("methodInPlainEnglish", "")).strip()
+    takeaway = str(paper.get("practicalTakeaway", "")).strip()
+
+    parts = []
+    if problem:
+        parts.append(f"This paper tackles {problem}.")
+    if method:
+        parts.append(f"It does this by {method[0].lower() + method[1:] if len(method) > 1 else method}.")
+    if takeaway:
+        parts.append(f"In practice, this means {takeaway[0].lower() + takeaway[1:] if len(takeaway) > 1 else takeaway}.")
+
+    return " ".join(parts) or "This paper introduces a specific technical method and explores where it can be applied in practice."
+
+
+def _normalize_opportunity(raw: dict, forced_type: str) -> dict:
+    raw = raw if isinstance(raw, dict) else {}
+    target = raw.get("targetUser", {}) if isinstance(raw.get("targetUser"), dict) else {}
+    product = raw.get("product", {}) if isinstance(raw.get("product"), dict) else {}
+    business = raw.get("business", {}) if isinstance(raw.get("business"), dict) else {}
+    metrics = raw.get("metrics", {}) if isinstance(raw.get("metrics"), dict) else {}
+    risks = raw.get("risks", [])
+    if not isinstance(risks, list):
+        risks = [str(risks)]
+
+    build_weeks = _to_int(raw.get("buildScopeWeeks"), _to_int(metrics.get("mvpMonths"), 2) * 4 or 8)
+    confidence = max(1, min(10, _to_int(raw.get("confidence"), _to_int(metrics.get("confidence"), 5))))
+
+    result = {
+        "type": forced_type,
+        "name": raw.get("name") or raw.get("startupName") or f"{PATH_LABELS.get(forced_type, forced_type)} Opportunity",
+        "oneLiner": raw.get("oneLiner", ""),
+        "targetUser": {
+            "persona": target.get("persona", "TBD user"),
+            "painPoint": target.get("painPoint", "TBD pain point"),
+            "currentAlternatives": target.get("currentAlternatives", "TBD alternatives"),
+        },
+        "coreValue": raw.get("coreValue") or product.get("coreFeature", "") or "TBD value",
+        "integrationSurface": raw.get("integrationSurface") or ("Standalone product" if forced_type == "platform" else "Existing workflow/API"),
+        "coreTech": raw.get("coreTech", ""),
+        "product": {
+            "coreFeature": product.get("coreFeature", raw.get("coreValue", "")),
+            "differentiation": product.get("differentiation", ""),
+        },
+        "business": {
+            "pricingModel": business.get("pricingModel", ""),
+            "gtm": business.get("gtm", ""),
+        },
+        "whyNow": raw.get("whyNow") or raw.get("theHook", ""),
+        "buildScopeWeeks": max(1, min(26, build_weeks)),
+        "distributionEase": str(raw.get("distributionEase", "Medium")).title(),
+        "competition": str(raw.get("competition", metrics.get("competition", "Medium"))).title(),
+        "novelty": str(raw.get("novelty", metrics.get("novelty", "Medium"))).title(),
+        "confidence": confidence,
+        "firstMilestone": raw.get("firstMilestone", "Ship one usable end-to-end flow."),
+        "risks": [str(r).strip() for r in risks if str(r).strip()][:3] or ["Execution risk not specified."],
+        "status": raw.get("status", "viable"),
+    }
+    result["feasibilityScore"] = _feasibility_score(result)
+    return result
+
+
+def _legacy_to_platform_opportunity(idea: dict) -> dict:
+    return {
+        "type": "platform",
+        "name": idea.get("startupName", "TBD"),
+        "oneLiner": idea.get("oneLiner", ""),
+        "targetUser": idea.get("targetUser", {}),
+        "integrationSurface": "Standalone product",
+        "coreTech": idea.get("coreTech", ""),
+        "product": idea.get("product", {}),
+        "business": idea.get("business", {}),
+        "whyNow": idea.get("theHook", ""),
+        "buildScopeWeeks": _to_int(idea.get("metrics", {}).get("mvpMonths"), 2) * 4 or 8,
+        "distributionEase": "Medium",
+        "competition": idea.get("metrics", {}).get("competition", "Medium"),
+        "novelty": idea.get("metrics", {}).get("novelty", "Medium"),
+        "confidence": _to_int(idea.get("metrics", {}).get("confidence"), 5),
+        "firstMilestone": idea.get("product", {}).get("coreFeature", "Ship one core feature."),
+        "risks": ["Legacy entry did not include risk analysis."],
+        "status": "viable",
+        "coreValue": idea.get("product", {}).get("coreFeature", "") or idea.get("oneLiner", ""),
+    }
+
+
+def _placeholder_path(path_type: str, paper: dict) -> dict:
+    return _normalize_opportunity(
+        {
+            "type": path_type,
+            "name": f"{PATH_LABELS.get(path_type, path_type)} Fit",
+            "oneLiner": "This path is possible but needs deeper validation.",
+            "coreValue": paper.get("coreBreakthrough", "Potential technical edge from this paper."),
+            "integrationSurface": "TBD",
+            "buildScopeWeeks": 10,
+            "distributionEase": "Low",
+            "competition": "Medium",
+            "novelty": "Medium",
+            "confidence": 3,
+            "firstMilestone": "Validate with 3 target users before building.",
+            "risks": ["Insufficient detail from analysis output."],
+            "status": "not_recommended",
+        },
+        path_type,
+    )
+
+
+def _opportunity_to_legacy_idea(opportunity: dict) -> dict:
+    return {
+        "startupName": opportunity.get("name", "TBD"),
+        "oneLiner": opportunity.get("oneLiner", ""),
+        "theHook": opportunity.get("whyNow", ""),
+        "targetUser": opportunity.get("targetUser", {}),
+        "coreTech": opportunity.get("coreTech", ""),
+        "product": opportunity.get("product", {}),
+        "business": opportunity.get("business", {}),
+        "metrics": {
+            "novelty": opportunity.get("novelty", "Medium"),
+            "competition": opportunity.get("competition", "Medium"),
+            "confidence": opportunity.get("confidence", 5),
+            "mvpMonths": max(1, round(_to_int(opportunity.get("buildScopeWeeks"), 8) / 4)),
+        },
+    }
+
+
+def normalize_analysis_data(data: dict) -> dict:
+    if not isinstance(data, dict):
+        return {}
+
+    paper = data.get("paperAnalysis", {}) if isinstance(data.get("paperAnalysis"), dict) else {}
+    raw_opportunities = data.get("opportunities", [])
+
+    candidates = []
+    if isinstance(raw_opportunities, list) and raw_opportunities:
+        candidates = [o for o in raw_opportunities if isinstance(o, dict)]
+    elif isinstance(data.get("startupIdea"), dict) and data.get("startupIdea"):
+        candidates = [_legacy_to_platform_opportunity(data["startupIdea"])]
+    elif isinstance(data.get("idea"), dict) and data.get("idea"):
+        idea = data["idea"]
+        candidates = [
+            {
+                "type": "feature",
+                "name": idea.get("startupName", "Suggested direction"),
+                "oneLiner": idea.get("oneLiner", ""),
+                "coreValue": idea.get("oneLiner", ""),
+                "integrationSurface": "Existing product workflow",
+                "buildScopeWeeks": 4,
+                "distributionEase": "Medium",
+                "competition": "Medium",
+                "novelty": "Medium",
+                "confidence": 5,
+                "firstMilestone": "Prototype this suggestion in one product flow.",
+                "risks": ["Generated from suggestion-only context."],
+            }
+        ]
+
+    typed = {}
+    for raw in candidates:
+        path_type = str(raw.get("type", "platform")).strip().lower()
+        if path_type not in PATH_TYPE_ORDER:
+            path_type = "platform"
+        typed[path_type] = _normalize_opportunity(raw, path_type)
+
+    for path_type in PATH_TYPE_ORDER:
+        if path_type not in typed:
+            typed[path_type] = _placeholder_path(path_type, paper)
+
+    opportunities = sorted(
+        typed.values(),
+        key=lambda o: (-o.get("feasibilityScore", 0.0), PATH_TYPE_ORDER.index(o.get("type", "platform"))),
+    )
+
+    wedge_candidates = [o for o in opportunities if o.get("type") in {"feature", "api_plugin"}]
+    recommended = max(wedge_candidates or opportunities, key=lambda o: o.get("feasibilityScore", 0.0))
+    weak_all = max(o.get("feasibilityScore", 0.0) for o in opportunities) < 4.5
+    recommendation_reason = (
+        "All paths are weak currently; treat this paper as inspiration until better demand signals are validated."
+        if weak_all
+        else f"Feasibility-first choice: {PATH_LABELS.get(recommended.get('type'), recommended.get('type'))} has the best speed/distribution profile."
+    )
+
+    normalized = dict(data)
+    normalized["opportunities"] = opportunities
+    normalized["recommendedPathComputed"] = recommended.get("type")
+    normalized["recommendationReasonComputed"] = recommendation_reason
+    if not normalized.get("recommendedPath"):
+        normalized["recommendedPath"] = recommended.get("type")
+    if not normalized.get("recommendationReason"):
+        normalized["recommendationReason"] = recommendation_reason
+    normalized["startupIdea"] = _opportunity_to_legacy_idea(recommended)
+    return normalized
 
 
 def render_saas_boost(data: dict):
@@ -265,20 +507,49 @@ def render_saas_boost(data: dict):
 
 
 def render_main_idea(data: dict, selected_model: str):
+    data = normalize_analysis_data(data)
     paper = data.get("paperAnalysis", {})
     swot = data.get("swot", {})
-    idea = data.get("startupIdea", {})
-    m = idea.get("metrics", {})
-    target = idea.get("targetUser", {})
+    opportunities = data.get("opportunities", [])
+    if not opportunities:
+        st.warning("No viable commercialization paths were generated.")
+        return
+
+    recommended_type = data.get("recommendedPathComputed", opportunities[0].get("type"))
+    recommended = next((o for o in opportunities if o.get("type") == recommended_type), opportunities[0])
 
     # Summary
-    st.subheader("📝 Summary")
-    st.info(paper.get("summary", ""))
+    st.subheader("📘 Paper Overview")
+    st.success(_build_intro_overview(paper))
 
-    # Core Ideas
+    st.subheader("📝 Paper Essence")
+    st.info(paper.get("summary", "Summary unavailable."))
+
+    colA, colB = st.columns(2)
+    with colA:
+        st.markdown("**Research Problem**")
+        st.write(paper.get("researchProblem", "Not explicitly stated."))
+        st.markdown("**Method (Plain English)**")
+        st.write(paper.get("methodInPlainEnglish", "Not explicitly stated."))
+    with colB:
+        st.markdown("**What Is New vs Prior Work**")
+        st.write(paper.get("whatIsNewVsPrior", "Not explicitly stated."))
+        st.markdown("**Practical Takeaway**")
+        st.write(paper.get("practicalTakeaway", "Not explicitly stated."))
+
+    st.markdown("**Evidence & Results**")
+    evidence_rows = paper.get("evidenceAndResults", [])
+    if evidence_rows:
+        for row in evidence_rows[:4]:
+            st.write(f"- {row}")
+    else:
+        st.write("- Not explicitly stated.")
+
     st.subheader("💡 Core Ideas")
     col1, col2 = st.columns(2)
     with col1:
+        st.markdown("**Core Breakthrough**")
+        st.write(paper.get("coreBreakthrough", "Not explicitly stated."))
         st.markdown("**Key Innovations**")
         for inn in paper.get("keyInnovations", []):
             st.markdown(f"- {inn}")
@@ -286,65 +557,109 @@ def render_main_idea(data: dict, selected_model: str):
         st.markdown("**Applications**")
         for app in paper.get("applications", []):
             st.markdown(f"- {app}")
+        st.markdown("**Assumptions**")
+        assumptions = paper.get("assumptions", [])
+        if assumptions:
+            for assumption in assumptions[:3]:
+                st.markdown(f"- {assumption}")
+        else:
+            st.markdown("- Not explicitly stated.")
 
-    colA, colB = st.columns(2)
-    with colA:
-        st.markdown("**Core Breakthrough**")
-        st.write(paper.get("coreBreakthrough", ""))
+    colV1, colV2 = st.columns(2)
+    with colV1:
         st.markdown("**Limitations**")
-        for lim in paper.get("limitations", []):
-            st.markdown(f"- {lim}")
-    with colB:
+        limitations = paper.get("limitations", [])
+        if limitations:
+            for lim in limitations[:4]:
+                st.markdown(f"- {lim}")
+        else:
+            st.markdown("- Not explicitly stated.")
+    with colV2:
         st.markdown("**Commercial Viability**")
         score = paper.get("startupViabilityScore", "?")
         st.metric("Viability Score", f"{score}/100")
         st.caption(paper.get("viabilityReasoning", ""))
+        fidelity = paper.get("fidelityNotes", {}) if isinstance(paper.get("fidelityNotes"), dict) else {}
+        if fidelity:
+            st.markdown(f"**Fidelity Confidence:** {fidelity.get('confidence', 'Unknown')}")
+            for note in fidelity.get("missingInfo", [])[:2]:
+                st.caption(f"Missing info: {note}")
 
     # SWOT
-    st.subheader("⚖️ SWOT Analysis")
+    st.subheader("⚖️ SWOT Analysis (Evidence-Linked)")
     sc1, sc2 = st.columns(2)
     with sc1:
         st.markdown("**Strengths**")
-        for s in swot.get("strengths", []):
-            st.write(f"✓ {s}")
+        strengths = swot.get("strengths", [])
+        if strengths:
+            for s in strengths[:4]:
+                st.write(f"✓ {s}")
+        else:
+            st.write("✓ Not explicitly stated.")
         st.markdown("**Opportunities**")
-        for o in swot.get("opportunities", []):
-            st.write(f"＋ {o}")
+        opportunities_swot = swot.get("opportunities", [])
+        if opportunities_swot:
+            for o in opportunities_swot[:4]:
+                st.write(f"＋ {o}")
+        else:
+            st.write("＋ Not explicitly stated.")
     with sc2:
         st.markdown("**Weaknesses**")
-        for w in swot.get("weaknesses", []):
-            st.write(f"✗ {w}")
+        weaknesses = swot.get("weaknesses", [])
+        if weaknesses:
+            for w in weaknesses[:4]:
+                st.write(f"✗ {w}")
+        else:
+            st.write("✗ Not explicitly stated.")
         st.markdown("**Threats**")
-        for t in swot.get("threats", []):
-            st.write(f"⚠ {t}")
+        threats = swot.get("threats", [])
+        if threats:
+            for t in threats[:4]:
+                st.write(f"⚠ {t}")
+        else:
+            st.write("⚠ Not explicitly stated.")
 
     st.divider()
 
-    # Startup Idea
-    st.subheader("🚀 Startup Idea")
-
-    if not idea:
-        st.warning(
-            "⚠️ This paper was evaluated as having too low commercial viability to generate a responsible startup idea. See the viability reasoning above."
-        )
-        return
+    st.subheader("🚀 Commercialization Paths")
+    if max(o.get("feasibilityScore", 0.0) for o in opportunities) < 4.5:
+        st.warning("This paper is currently low-feasibility across all paths. Consider it for scoped experiments only.")
+    else:
+        st.success("Default recommendation: build the smallest viable wedge first (feature/API path).")
 
     st.markdown(
-        f"<div class='saas-header'>{idea.get('startupName', 'TBD')}</div>",
+        f"<div class='saas-header'>{recommended.get('name', 'Recommended Path')}</div>",
         unsafe_allow_html=True,
     )
-    st.markdown(f"**{idea.get('oneLiner', '')}**")
-    st.caption(f"🎯 {idea.get('theHook', '')}")
+    st.markdown(f"**{recommended.get('oneLiner', '')}**")
+    st.caption(data.get("recommendationReasonComputed") or data.get("recommendationReason", ""))
 
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Novelty", m.get("novelty", "?"))
-    with col2:
-        st.metric("Competition", m.get("competition", "?"))
-    with col3:
-        st.metric("Confidence", f"{m.get('confidence', '?')}/10")
-    with col4:
-        st.metric("MVP", f"{m.get('mvpMonths', '?')} months")
+    comparison_rows = []
+    for opp in opportunities:
+        comparison_rows.append(
+            {
+                "Path": PATH_LABELS.get(opp.get("type"), opp.get("type")),
+                "Feasibility": f"{opp.get('feasibilityScore', 0.0)}/10",
+                "Build (weeks)": opp.get("buildScopeWeeks", "?"),
+                "Confidence": f"{opp.get('confidence', '?')}/10",
+                "Distribution": opp.get("distributionEase", "Medium"),
+                "Competition": opp.get("competition", "Medium"),
+            }
+        )
+    st.table(comparison_rows)
+
+    path_ids = [o.get("type", "platform") for o in opportunities]
+    recommended_index = path_ids.index(recommended.get("type")) if recommended.get("type") in path_ids else 0
+    selected_path_type = st.radio(
+        "Inspect path",
+        options=path_ids,
+        horizontal=True,
+        index=recommended_index,
+        format_func=lambda path: PATH_LABELS.get(path, path),
+        key=f"path_select_{st.session_state.current_session_id or 'current'}",
+    )
+    selected = next((o for o in opportunities if o.get("type") == selected_path_type), opportunities[0])
+    target = selected.get("targetUser", {})
 
     tab1, tab2, tab3, tab4, tab_comp = st.tabs(
         ["🎯 User", "💻 Product", "💰 Business", "🔧 Tech", "🕵️ Competitors"]
@@ -358,25 +673,41 @@ def render_main_idea(data: dict, selected_model: str):
 
     with tab2:
         st.subheader("Core Feature")
-        st.info(idea.get("product", {}).get("coreFeature", ""))
+        st.info(selected.get("product", {}).get("coreFeature", ""))
         st.markdown(
-            f"**Differentiation:** {idea.get('product', {}).get('differentiation', '')}"
+            f"**Differentiation:** {selected.get('product', {}).get('differentiation', '')}"
         )
+        st.markdown(f"**Core Value:** {selected.get('coreValue', '')}")
+        st.markdown(f"**Integration Surface:** {selected.get('integrationSurface', '')}")
+        st.markdown(f"**First Milestone:** {selected.get('firstMilestone', '')}")
 
     with tab3:
         st.subheader("Business Model")
-        st.markdown(f"**Pricing:** {idea.get('business', {}).get('pricingModel', '')}")
-        st.markdown(f"**GTM:** {idea.get('business', {}).get('gtm', '')}")
+        st.markdown(f"**Pricing:** {selected.get('business', {}).get('pricingModel', '')}")
+        st.markdown(f"**GTM:** {selected.get('business', {}).get('gtm', '')}")
+        st.markdown(f"**Why now:** {selected.get('whyNow', '')}")
+        st.markdown("**Risks:**")
+        for risk in selected.get("risks", []):
+            st.write(f"- {risk}")
 
     with tab4:
         st.subheader("Core Technology")
-        st.info(idea.get("coreTech", ""))
+        st.info(selected.get("coreTech", ""))
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Novelty", selected.get("novelty", "?"))
+        with col2:
+            st.metric("Competition", selected.get("competition", "?"))
+        with col3:
+            st.metric("Confidence", f"{selected.get('confidence', '?')}/10")
+        with col4:
+            st.metric("Build Scope", f"{selected.get('buildScopeWeeks', '?')} weeks")
 
     with tab_comp:
         st.subheader("Live Market Intelligence")
 
-        # Check if we already have competitor data
-        competitor_data = data.get("competitorIntelligence")
+        by_path = data.get("competitorIntelligenceByPath", {})
+        competitor_data = by_path.get(selected_path_type) or data.get("competitorIntelligence")
 
         if competitor_data:
             st.info(f"**Market Verdict:** {competitor_data.get('marketVerdict', '')}")
@@ -403,7 +734,7 @@ def render_main_idea(data: dict, selected_model: str):
                         )
         else:
             st.write(
-                "Run a live web search to find current platforms and alternatives for this specific idea."
+                f"Run a live web search for this path: {PATH_LABELS.get(selected_path_type, selected_path_type)}."
             )
 
             # Use columns to center/style the button
@@ -412,40 +743,31 @@ def render_main_idea(data: dict, selected_model: str):
                 if st.button(
                     "🔍 Run Deep Competitor Research",
                     use_container_width=True,
-                    key=f"comp_{st.session_state.current_session_id}",
+                    key=f"comp_{st.session_state.current_session_id}_{selected_path_type}",
                 ):
                     with st.spinner(
                         "Searching the web with Parallel.ai and analyzing the market..."
                     ):
                         try:
-                            # Set up a new agent with Parallel.ai search tools
-                            comp_agent = Agent(
-                                model=get_model(selected_model),
-                                description=COMPETITOR_RESEARCH_PROMPT,
-                                tools=[ParallelTools(enable_search=True, enable_extract=True, max_results=5)],
-                                markdown=False,
+                            idea_context = (
+                                f"Path Type: {selected_path_type}\n"
+                                f"Idea Name: {selected.get('name')}\n"
+                                f"One-liner: {selected.get('oneLiner')}\n"
+                                f"Target User: {target.get('persona')}\n"
+                                f"Core Feature: {selected.get('product', {}).get('coreFeature')}\n"
+                                f"Integration Surface: {selected.get('integrationSurface')}\n"
+                                f"Core Value: {selected.get('coreValue')}"
                             )
-
-                            idea_context = f"Idea Name: {idea.get('startupName')}\nOne-liner: {idea.get('oneLiner')}\nTarget User: {target.get('persona')}\nCore Feature: {idea.get('product', {}).get('coreFeature')}"
-
-                            comp_raw = ""
-                            for chunk in comp_agent.run(idea_context, stream=True):
-                                content = (
-                                    chunk.content
-                                    if hasattr(chunk, "content")
-                                    else str(chunk)
-                                )
-                                if content:
-                                    comp_raw += content
-
-                            comp_json = parse_agent_json(comp_raw)
+                            comp_raw, comp_json = run_competitor_agent(idea_context, selected_model)
 
                             if comp_json:
                                 # Save back to the session state under the current ID
                                 current_id = st.session_state.current_session_id
-                                st.session_state.sessions[current_id]["data"][
-                                    "competitorIntelligence"
-                                ] = comp_json
+                                session_data = st.session_state.sessions[current_id]["data"]
+                                if "competitorIntelligenceByPath" not in session_data:
+                                    session_data["competitorIntelligenceByPath"] = {}
+                                session_data["competitorIntelligenceByPath"][selected_path_type] = comp_json
+                                session_data["competitorIntelligence"] = comp_json
                                 save_sessions(st.session_state.sessions)
                                 st.rerun()
                             else:
@@ -456,6 +778,7 @@ def render_main_idea(data: dict, selected_model: str):
 
                         except Exception as e:
                             st.error(f"Search failed: {e}")
+
 
 
 def render_suggestions(suggestions: list, parent_session_id: str):
@@ -514,10 +837,23 @@ with st.sidebar:
     st.divider()
 
     # Model Selection
+    show_all_models = st.toggle("Show non-AWS models", value=False)
+    model_options = [
+        name for name in AVAILABLE_MODELS.keys()
+        if show_all_models or AVAILABLE_MODELS[name].startswith("amazon:")
+    ]
+    if not model_options:
+        model_options = list(AVAILABLE_MODELS.keys())
+
+    default_index = 0
+    if DEFAULT_MODEL_KEY in model_options:
+        default_index = model_options.index(DEFAULT_MODEL_KEY)
+
     selected_model_name = st.selectbox(
         "Model",
-        options=list(AVAILABLE_MODELS.keys()),
-        index=list(AVAILABLE_MODELS.keys()).index(DEFAULT_MODEL_KEY)
+        options=model_options,
+        index=default_index,
+        help="AWS Nova models are recommended for reliability in this project."
     )
     selected_model = AVAILABLE_MODELS[selected_model_name]
     
@@ -659,9 +995,11 @@ elif analyze_btn and st.session_state.app_mode == "📄 Paper → Idea" and arxi
                     st.error("Failed to generate idea.")
                     st.code(full_raw)
                 else:
+                    data = normalize_analysis_data(data)
+                    recommended_idea = data.get("startupIdea", {})
                     st.session_state.sessions[session_id] = {
                         "timestamp": datetime.now().isoformat(),
-                        "productName": data.get("startupIdea", {}).get("startupName", "TBD"),
+                        "productName": recommended_idea.get("startupName", "TBD"),
                         "data": data,
                         "meta": meta,
                         "mode": "arxiv"
@@ -673,7 +1011,7 @@ elif analyze_btn and st.session_state.app_mode == "📄 Paper → Idea" and arxi
 
                     try:
                         suggestion_raw, sugg_data = run_suggestion_agent(
-                            data.get('startupIdea', {}).get('oneLiner', ''),
+                            recommended_idea.get('oneLiner', ''),
                             meta.get('abstract', ''),
                             selected_model
                         )
@@ -688,7 +1026,7 @@ elif analyze_btn and st.session_state.app_mode == "📄 Paper → Idea" and arxi
 
                     prog.progress(100)
                     status.update(label="Done", state="complete", expanded=False)
-                    st.toast(f"Generated: {data.get('startupIdea', {}).get('startupName', 'TBD')}", icon="💡")
+                    st.toast(f"Generated: {recommended_idea.get('startupName', 'TBD')}", icon="💡")
 
                     render_main_idea(data, selected_model)
                     if data.get("suggestions"):

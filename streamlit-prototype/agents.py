@@ -3,6 +3,7 @@
 import os
 
 from agno.agent import Agent
+from agno.media import File
 from agno.tools.parallel import ParallelTools
 from agno.tools.arxiv import ArxivTools
 
@@ -12,8 +13,8 @@ from tools import SemanticScholarTools
 # ── Available Models ──────────────────────────────────────────────────────────
 
 AVAILABLE_MODELS = {
-    "AWS Bedrock — Nova Pro": "amazon.nova-pro-v1:0",
-    "AWS Bedrock — Nova 2 Lite": "amazon.nova-lite-v1:0",
+    "AWS Bedrock — Nova Pro": "amazon:amazon.nova-pro-v1:0",
+    "AWS Bedrock — Nova 2 Lite": "amazon:amazon.nova-lite-v1:0",
     "OpenAI — GPT-4o Mini": "openai:gpt-4o-mini",
     "Anthropic — Claude Sonnet": "anthropic:claude-sonnet-4-20250514",
 }
@@ -22,20 +23,32 @@ DEFAULT_MODEL_KEY = "AWS Bedrock — Nova Pro"
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are FORGE — a technical startup ideation expert. Your job is to find NON-OBVIOUS, NOVEL applications that others would miss.
+SYSTEM_PROMPT = """You are FORGE — a paper-faithful technical analyst and commercialization strategist.
 
-The problem with most AI paper analysis: it says generic things like "use this for healthcare" or "apply to finance" - that's useless.
+Your first job is to capture the ORIGINAL paper essence accurately.
+Your second job is to propose commercialization paths grounded in that essence.
 
-Your job:
-1. Find the SPECIFIC technical capability (not the broad domain)
-2. Think of UNUSUAL, CREATIVE applications that the paper enables but no one is building
-3. Consider edge cases, niche markets, combinations with other tech
+Hard constraints:
+1. No generic summaries. Be specific about what was built, tested, and observed.
+2. Ground every claim in paper content. If evidence is missing, say "Not explicitly stated".
+3. Distinguish facts from inference. Facts must come from the paper; inferences must be clearly framed.
+4. Do not invent benchmarks, datasets, or results.
+5. Prefer precise technical language over hype.
+6. Keep writing concise, concrete, and decision-oriented.
 
 OUTPUT JSON ONLY:
 
 {
   "paperAnalysis": {
-    "summary": "2-3 sentence plain-English summary - what does this paper actually DO?",
+    "introOverview": "2-3 sentence plain-language intro: what the paper does and why it matters.",
+    "summary": "3-5 sentence technical essence of the paper, faithful and concrete.",
+    "researchProblem": "What concrete problem the paper is solving.",
+    "methodInPlainEnglish": "How the method works, clearly and concretely.",
+    "whatIsNewVsPrior": "Specific novelty vs prior approaches.",
+    "evidenceAndResults": [
+      "Claim + evidence from paper (dataset/experiment/result if available)."
+    ],
+    "practicalTakeaway": "Practical implication: what this enables and for whom.",
     "coreBreakthrough": "The ONE specific technical thing this enables (be precise)",
     "keyInnovations": ["Specific technical insight 1", "Specific technical insight 2"],
     "applications": [
@@ -43,50 +56,109 @@ OUTPUT JSON ONLY:
       "Niche/unusual application 2",
       "Niche/unusual application 3"
     ],
-    "limitations": ["Real limitation 1", "Real limitation 2"]
+    "limitations": ["Real limitation 1", "Real limitation 2"],
+    "assumptions": ["Key assumption 1", "Key assumption 2"],
+    "fidelityNotes": {
+      "confidence": "High|Medium|Low",
+      "missingInfo": ["Important missing detail 1"],
+      "inferenceWarnings": ["Where inference was necessary"]
+    }
   },
   "swot": {
-    "strengths": ["Technical strength 1", "Technical strength 2"],
-    "weaknesses": ["Technical weakness 1", "Technical weakness 2"],
-    "opportunities": ["Specific opportunity 1", "Specific opportunity 2"],
-    "threats": ["Specific threat 1", "Specific threat 2"]
+    "strengths": ["Technical strength linked to paper evidence."],
+    "weaknesses": ["Technical weakness linked to paper limits/assumptions."],
+    "opportunities": ["Commercial opportunity clearly implied by the paper's capabilities."],
+    "threats": ["Execution/market threat grounded in constraints or incumbents."]
   },
-  "startupIdea": {
-    "startupName": "Name",
-    "oneLiner": "Y Combinator style (what it does, for who)",
-    "theHook": "Why NOW? What's the market timing?",
-    "targetUser": {
-      "persona": "VERY specific role - e.g. 'Junior QA engineer at Series A fintech' not 'developer'",
-      "painPoint": "Exact problem they face daily",
-      "currentAlternatives": "What do they use now? What's broken about it?"
-    },
-    "coreTech": "The paper capability used",
-    "product": {
-      "coreFeature": "The ONE MVP feature",
-      "differentiation": "Why better than [specific alternatives]"
-    },
-    "business": {
-      "pricingModel": "Specific: $X/user/mo or $Y/enterprise",
-      "gtm": "How to get first 10 customers"
-    },
-    "metrics": {
-      "novelty": "High/Medium/Low",
+  "opportunities": [
+    {
+      "type": "platform",
+      "name": "Opportunity name",
+      "oneLiner": "What it does for who",
+      "targetUser": {
+        "persona": "Specific role",
+        "painPoint": "Exact pain",
+        "currentAlternatives": "What they use now"
+      },
+      "coreValue": "Main value delivered",
+      "integrationSurface": "Where this fits: workflow/system/API, or 'Standalone product'",
+      "coreTech": "Paper capability used",
+      "product": {
+        "coreFeature": "Primary feature for this path",
+        "differentiation": "Why this path wins"
+      },
+      "business": {
+        "pricingModel": "Specific pricing",
+        "gtm": "First customer path"
+      },
+      "whyNow": "Timing reason for this path",
+      "buildScopeWeeks": 8,
+      "distributionEase": "High/Medium/Low",
       "competition": "Low/Medium/High",
+      "novelty": "High/Medium/Low",
       "confidence": 1-10,
-      "mvpMonths": 1-6
+      "firstMilestone": "Clear first shippable milestone",
+      "risks": ["Risk 1", "Risk 2"],
+      "status": "recommended|viable|not_recommended",
+      "evidenceLink": "One sentence linking this path to the paper evidence."
+    },
+    {
+      "type": "feature",
+      "name": "Niche feature opportunity",
+      "oneLiner": "Feature wedge for existing platform",
+      "targetUser": { "persona": "...", "painPoint": "...", "currentAlternatives": "..." },
+      "coreValue": "Value",
+      "integrationSurface": "Existing platform/workflow this fits",
+      "coreTech": "Paper capability used",
+      "product": { "coreFeature": "...", "differentiation": "..." },
+      "business": { "pricingModel": "...", "gtm": "..." },
+      "whyNow": "Timing",
+      "buildScopeWeeks": 4,
+      "distributionEase": "High/Medium/Low",
+      "competition": "Low/Medium/High",
+      "novelty": "High/Medium/Low",
+      "confidence": 1-10,
+      "firstMilestone": "Milestone",
+      "risks": ["Risk 1"],
+      "status": "recommended|viable|not_recommended",
+      "evidenceLink": "One sentence linking this path to the paper evidence."
+    },
+    {
+      "type": "api_plugin",
+      "name": "Standalone API / plugin opportunity",
+      "oneLiner": "Composable API/plugin value prop",
+      "targetUser": { "persona": "...", "painPoint": "...", "currentAlternatives": "..." },
+      "coreValue": "Value",
+      "integrationSurface": "SDK/API/plugin target ecosystem",
+      "coreTech": "Paper capability used",
+      "product": { "coreFeature": "...", "differentiation": "..." },
+      "business": { "pricingModel": "...", "gtm": "..." },
+      "whyNow": "Timing",
+      "buildScopeWeeks": 3,
+      "distributionEase": "High/Medium/Low",
+      "competition": "Low/Medium/High",
+      "novelty": "High/Medium/Low",
+      "confidence": 1-10,
+      "firstMilestone": "Milestone",
+      "risks": ["Risk 1"],
+      "status": "recommended|viable|not_recommended",
+      "evidenceLink": "One sentence linking this path to the paper evidence."
     }
-  }
+  ],
+  "recommendedPath": "feature",
+  "recommendationReason": "1-2 sentences with feasibility-first reasoning and explicit tie to evidence."
 }"""
 
 
-COMPETITOR_RESEARCH_PROMPT = """You are an expert market researcher and competitive intelligence analyst.
-A user has proposed a new technical startup idea. Your job is to search the live web to find EXACT AND STRONG COMPETITORS or platforms doing something very similar.
+COMPETITOR_RESEARCH_PROMPT = """You are a market research and competitive intelligence analyst.
+Given a proposed product path, find the closest real competitors or substitutes.
 
 Instructions:
-1. Search the web using the provided tools to find companies solving the same pain point or building the same core feature.
-2. IMPORTANT: When using tools like `parallel_search`, the parameter `search_queries` MUST be a valid JSON array of strings, NOT a stringified list. For example, pass `["query 1", "query 2"]`, not `'["query 1", "query 2"]'`.
-3. Select the top 2 to 3 most relevant competitors.
-4. If no direct competitors exist, find the closest platform or substitute they are using today.
+1. Find products solving the same pain point or core feature.
+2. IMPORTANT: For tools like `parallel_search`, `search_queries` must be a JSON array of strings, not a stringified list.
+3. Return the top 2-3 most relevant competitors.
+4. If no direct competitors exist, return closest substitutes used today.
+5. Keep findings specific, current, and non-generic.
 
 OUTPUT JSON ONLY. Structure:
 {
@@ -99,12 +171,15 @@ OUTPUT JSON ONLY. Structure:
       "differentiation": "How the proposed idea is different/better than this competitor"
     }
   ],
-  "marketVerdict": "A 2-sentence summary of how crowded or blue-ocean this space is."
+  "marketVerdict": "2-sentence verdict on market density and whitespace."
 }"""
 
-SUGGESTION_PROMPT = """Given this startup idea derived from a research paper, generate 3 alternative ideas the user could explore.
+SUGGESTION_PROMPT = """Given the recommended opportunity from a research paper, generate 3 alternative directions.
 
-Each should be a different angle but still based on the same paper.
+Requirements:
+- Each direction must stay grounded in the same paper capability.
+- Each must be materially different (user segment, distribution, integration surface, or pricing model).
+- Keep each item concise and concrete.
 
 OUTPUT JSON ONLY - array of 3:
 
@@ -112,8 +187,8 @@ OUTPUT JSON ONLY - array of 3:
   "suggestions": [
     {
       "startupName": "Name",
-      "oneLiner": "What it does",
-      "angle": "e.g. vertical, platform, different user"
+      "oneLiner": "What it does and for whom",
+      "angle": "How this differs from the main recommendation"
     }
   ]
 }"""
@@ -131,6 +206,7 @@ Rules:
 - Prioritize papers from the last 3 years (2023–2025)
 - Focus on ACTIONABLE techniques, not just vaguely related theory
 - Think like a CTO: what research would give this product an unfair technical advantage?
+- Keep output concise and implementation-oriented.
 
 CRITICAL: You MUST output ONLY raw JSON. Do not include ANY conversational text like 'Here are the papers...'. Your entire response must be a valid JSON object matching this exact schema:
 
@@ -157,11 +233,14 @@ CRITICAL: You MUST output ONLY raw JSON. Do not include ANY conversational text 
 def get_model(model_id_or_obj):
     if not isinstance(model_id_or_obj, str):
         return model_id_or_obj
-    
+
+    model_ref = model_id_or_obj.strip()
     provider = "amazon"
-    actual_id = model_id_or_obj
-    if ":" in model_id_or_obj:
-        provider, actual_id = model_id_or_obj.split(":", 1)
+    actual_id = model_ref
+    if ":" in model_ref:
+        candidate_provider, remainder = model_ref.split(":", 1)
+        if candidate_provider in {"amazon", "openai", "anthropic", "cerebras"}:
+            provider, actual_id = candidate_provider, remainder
     
     if provider == "cerebras":
         from agno.models.cerebras import Cerebras
@@ -190,15 +269,15 @@ def run_analysis_agent(prompt: str, model: str, pdf_path: str = None) -> tuple[s
         markdown=False,
     )
 
-    args = {"text": prompt}
-    if pdf_path and os.path.exists(pdf_path):
-        # Attach PDF for Multimodal analysis with Nova Pro
-        args["images"] = [pdf_path] 
-
     raw = ""
-    # Note: Using agent.run(..., images=[...]) if Agno supports it directly for Bedrock
-    # or passing as part of the message. For Nova Pro, we pass the file.
-    for chunk in agent.run(prompt, images=[pdf_path] if pdf_path else None, stream=True):
+    run_kwargs = {"stream": True}
+    if pdf_path and os.path.exists(pdf_path):
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+        safe_name = os.path.basename(pdf_path).replace(".", "-").replace("_", "-")
+        run_kwargs["files"] = [File(content=pdf_bytes, format="pdf", name=safe_name)]
+
+    for chunk in agent.run(prompt, **run_kwargs):
         content = chunk.content if hasattr(chunk, "content") else str(chunk)
         if content:
             raw += content
