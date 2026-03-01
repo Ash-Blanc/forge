@@ -10,12 +10,9 @@ from dotenv import load_dotenv
 from agents import (
     SYSTEM_PROMPT,
     COMPETITOR_RESEARCH_PROMPT,
-    SAAS_TO_PAPERS_PROMPT,
-    run_analysis_agent,
-    run_competitor_agent,
-    run_saas_boost_agent,
-    run_suggestion_agent
+    SAAS_TO_PAPERS_PROMPT
 )
+from utils import build_prompt, parse_agent_json
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env.local'))
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', 'streamlit-prototype', '.env'))
@@ -43,14 +40,34 @@ class CompetitorMeta(BaseModel):
     ideaContext: str
     model: Optional[str] = "cerebras:llama3.1-8b"
 
-def build_prompt(meta: dict) -> str:
-    return f"""Analyze this paper and generate both a paper analysis and startup idea.
-
-Title: {meta.get("title", "")}
-Authors: {", ".join(meta.get("authors", []))}
-Abstract: {meta.get("abstract", "")[:5000]}
-
-Return ONLY valid JSON."""
+def get_model(model_id: str | None):
+    """Instantiate the appropriate Agno model based on the provider prefix."""
+    model_id = model_id or "amazon:amazon.nova-lite-v1:0"
+    provider = "amazon"
+    actual_id = model_id
+    
+    if ":" in model_id:
+        provider, actual_id = model_id.split(":", 1)
+    
+    if provider == "cerebras":
+        from agno.models.cerebras import Cerebras
+        return Cerebras(id=actual_id)
+    elif provider == "openai":
+        from agno.models.openai import OpenAIChat
+        return OpenAIChat(id=actual_id)
+    elif provider == "anthropic":
+        from agno.models.anthropic import Claude
+        return Claude(id=actual_id)
+    elif provider == "amazon":
+        from agno.models.aws.bedrock import AwsBedrock
+        import boto3
+        boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
+        return AwsBedrock(id=actual_id, session=boto_session)
+    else:
+        from agno.models.aws.bedrock import AwsBedrock
+        import boto3
+        boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
+        return AwsBedrock(id="amazon.nova-lite-v1:0", session=boto_session)
 
 @app.post("/analyze")
 def analyze_paper(meta: ArxivMeta):
@@ -60,33 +77,7 @@ def analyze_paper(meta: ArxivMeta):
         try:
             from agno.agent import Agent
 
-            # Determine the provider from the model_id string (e.g., "amazon:...")
-            model_id = meta.model or "amazon:amazon.nova-lite-v1:0"
-            provider = "amazon"
-            actual_id = model_id
-            
-            if ":" in model_id:
-                provider, actual_id = model_id.split(":", 1)
-            
-            if provider == "cerebras":
-                from agno.models.cerebras import Cerebras
-                model = Cerebras(id=actual_id)
-            elif provider == "openai":
-                from agno.models.openai import OpenAIChat
-                model = OpenAIChat(id=actual_id)
-            elif provider == "anthropic":
-                from agno.models.anthropic import Claude
-                model = Claude(id=actual_id)
-            elif provider == "amazon":
-                from agno.models.aws.bedrock import AwsBedrock
-                import boto3
-                boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
-                model = AwsBedrock(id=actual_id, session=boto_session)
-            else:
-                from agno.models.aws.bedrock import AwsBedrock
-                import boto3
-                boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
-                model = AwsBedrock(id="amazon.nova-lite-v1:0", session=boto_session)
+            model = get_model(meta.model)
                 
             agent = Agent(
                 model=model,
@@ -101,13 +92,9 @@ def analyze_paper(meta: ArxivMeta):
                     full_text += content
                     yield f"data: {json.dumps({'type': 'delta', 'text': full_text})}\n\n"
             
-            clean = re.sub(r'```json\s*', '', full_text, flags=re.IGNORECASE)
-            clean = re.sub(r'```\s*', '', clean).strip()
-            match = re.search(r'\{[\s\S]*\}', clean)
-            if not match:
+            analysis = parse_agent_json(full_text)
+            if not analysis:
                 raise ValueError("No JSON in response")
-            
-            analysis = json.loads(match.group(0))
             
             # --- Indexing to PgVector ---
             try:
@@ -137,32 +124,7 @@ def analyze_saas(meta: SaasMeta):
             from agno.agent import Agent
             from tools import SemanticScholarTools
 
-            model_id = meta.model or "amazon:amazon.nova-lite-v1:0"
-            provider = "amazon"
-            actual_id = model_id
-            
-            if ":" in model_id:
-                provider, actual_id = model_id.split(":", 1)
-            
-            if provider == "cerebras":
-                from agno.models.cerebras import Cerebras
-                model = Cerebras(id=actual_id)
-            elif provider == "openai":
-                from agno.models.openai import OpenAIChat
-                model = OpenAIChat(id=actual_id)
-            elif provider == "anthropic":
-                from agno.models.anthropic import Claude
-                model = Claude(id=actual_id)
-            elif provider == "amazon":
-                from agno.models.aws.bedrock import AwsBedrock
-                import boto3
-                boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
-                model = AwsBedrock(id=actual_id, session=boto_session)
-            else:
-                from agno.models.aws.bedrock import AwsBedrock
-                import boto3
-                boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
-                model = AwsBedrock(id="amazon.nova-lite-v1:0", session=boto_session)
+            model = get_model(meta.model)
 
             tools = [SemanticScholarTools()]
             agent = Agent(
@@ -187,13 +149,10 @@ Prioritize papers that have an verifiable arXiv ID. Return JSON only."""
                     full_text += content
                     yield f"data: {json.dumps({'type': 'delta', 'text': full_text})}\n\n"
             
-            clean = re.sub(r'```json\s*', '', full_text, flags=re.IGNORECASE)
-            clean = re.sub(r'```\s*', '', clean).strip()
-            match = re.search(r'\{[\s\S]*\}', clean)
-            if not match:
+            analysis = parse_agent_json(full_text)
+            if not analysis:
                 raise ValueError("No JSON in response")
             
-            analysis = json.loads(match.group(0))
             yield f"data: {json.dumps({'type': 'done', 'analysis': analysis})}\n\n"
             
         except Exception as e:
@@ -208,32 +167,7 @@ def analyze_competitors(meta: CompetitorMeta):
             from agno.agent import Agent
             from agno.tools.parallel import ParallelTools
 
-            model_id = meta.model or "amazon:amazon.nova-lite-v1:0"
-            provider = "amazon"
-            actual_id = model_id
-            
-            if ":" in model_id:
-                provider, actual_id = model_id.split(":", 1)
-            
-            if provider == "cerebras":
-                from agno.models.cerebras import Cerebras
-                model = Cerebras(id=actual_id)
-            elif provider == "openai":
-                from agno.models.openai import OpenAIChat
-                model = OpenAIChat(id=actual_id)
-            elif provider == "anthropic":
-                from agno.models.anthropic import Claude
-                model = Claude(id=actual_id)
-            elif provider == "amazon":
-                from agno.models.aws.bedrock import AwsBedrock
-                import boto3
-                boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
-                model = AwsBedrock(id=actual_id, session=boto_session)
-            else:
-                from agno.models.aws.bedrock import AwsBedrock
-                import boto3
-                boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
-                model = AwsBedrock(id="amazon.nova-lite-v1:0", session=boto_session)
+            model = get_model(meta.model)
 
             agent = Agent(
                 model=model,
@@ -249,13 +183,10 @@ def analyze_competitors(meta: CompetitorMeta):
                     full_text += content
                     yield f"data: {json.dumps({'type': 'delta', 'text': full_text})}\n\n"
             
-            clean = re.sub(r'```json\s*', '', full_text, flags=re.IGNORECASE)
-            clean = re.sub(r'```\s*', '', clean).strip()
-            match = re.search(r'\{[\s\S]*\}', clean)
-            if not match:
+            analysis = parse_agent_json(full_text)
+            if not analysis:
                 raise ValueError("No JSON in response")
             
-            analysis = json.loads(match.group(0))
             yield f"data: {json.dumps({'type': 'done', 'analysis': analysis})}\n\n"
             
         except Exception as e:
