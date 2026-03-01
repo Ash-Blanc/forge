@@ -1,5 +1,0 @@
-agno>=1.0.0
-streamlit
-python-dotenv
-cerebras-cloud-sdk
-parallel-web

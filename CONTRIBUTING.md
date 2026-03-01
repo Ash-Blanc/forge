@@ -1,6 +1,19 @@
 # Contributing to FORGE
 
-Welcome! This guide will help you get started with contributing to FORGE.
+Welcome! This guide will help you get started with contributing to FORGE. We follow a **Prototype-First** approach, prioritizing rapid iteration, internal dogfooding, and tight feedback loops over traditional, lengthy planning cycles.
+
+---
+
+## 🚀 Our Philosophy: Prototype-First
+
+We build fast and iterate. Based on our Core Approach:
+
+1. **Skip the PRD:** Move directly from a high-level idea to a working prototype.
+2. **WIP Wednesdays:** Demo work-in-progress weekly for immediate, cross-functional feedback.
+3. **Internal Dogfooding:** We ship internally and start using our own features immediately.
+4. **Swarm Teams:** Small, cross-functional groups tackle major features quickly.
+5. **Iterate on Real Usage:** Refine based on actual usage, not just ideas.
+6. **Use Our Tools:** We use our own AI products to build FORGE faster.
 
 ---
 
@@ -16,6 +29,8 @@ Welcome! This guide will help you get started with contributing to FORGE.
 
 ## Development Setup
 
+Our stack is built for speed: **Bun** for frontend/web, and **uv** for Python agents.
+
 ### 1. Fork & Clone
 
 ```bash
@@ -23,7 +38,7 @@ git clone https://github.com/your-username/forge.git
 cd forge
 ```
 
-### 2. Frontend Setup
+### 2. Frontend Setup (Next.js)
 
 ```bash
 cd full-stack-web
@@ -33,39 +48,55 @@ cp .env.local.example .env.local
 
 # Edit .env.local with your credentials:
 # - NEXT_PUBLIC_SUPABASE_URL
-# - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY  
+# - NEXT_PUBLIC_SUPABASE_ANON_KEY
 # - ANTHROPIC_API_KEY
+# - AWS_REGION=us-east-1
 ```
 
 **Get Supabase keys:**
 1. Go to [supabase.com](https://supabase.com)
-2. Create a new project
+2. Create a new project with PostgreSQL & pgvector
 3. Settings → API → Copy URL and anon key
 
-**Get Anthropic key:**
-1. Go to [console.anthropic.com](https://console.anthropic.com)
-2. Create an API key
+**Get API keys:**
+1. Anthropic: [console.anthropic.com](https://console.anthropic.com)
+2. AWS Bedrock setup for Nova-lite models
 
-### 3. Install Dependencies
+### 3. Install Dependencies & Run
 
-```bash
-npm install
-```
-
-### 4. Run Development Server
+We use **Bun** instead of npm.
 
 ```bash
-npm run dev
+bun install
+bun run seed  # Seed sample data
+bun run dev   # Starts Next.js dev server with Turbopack
 ```
-
 Open http://localhost:3000
 
-### 5. (Optional) Python Agent
+### 4. Setup Python Agents Service
+
+We use **uv** for ultra-fast Python package management. The Next.js API expects this server to run on port 8321.
 
 ```bash
 cd full-stack-web/agents
-pip install -r requirements.txt
-uvicorn server:app --port 8321 --reload
+
+# Create virtual environment and activate
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+uv add -r requirements.txt
+
+# Run the agent server
+uv run uvicorn server:app --port 8321 --reload
+```
+
+### 5. Streamlit Prototype (Active Workspace)
+
+For rapid feature development before migration to full-stack:
+```bash
+cd streamlit-prototype
+uv run streamlit run app.py
 ```
 
 ---
@@ -80,21 +111,27 @@ git checkout -b feature/your-feature-name
 git checkout -b fix/bug-description
 ```
 
-### 2. Make Your Changes
+### 2. Follow Development Conventions
 
-- Follow the code style in the project
-- Use TypeScript (no plain JS)
-- Use descriptive variable/function names
-- Add comments for complex logic
+**Frontend (Next.js/TypeScript):**
+- **Strict TypeScript:** No `any`. Always use explicit types.
+- **KISS:** Keep it simple, avoid over-engineering.
+- **Components:** PascalCase (e.g., `PaperCard.tsx`). Functional components with hooks.
+- **Styling:** Tailwind CSS v4 utility classes.
+
+**Backend (Python/FastAPI):**
+- **PEP 8 Style**
+- **Type Hints:** Required for function signatures. Use Pydantic models for validation.
+- **Agents:** Built on the **Agno framework**.
 
 ### 3. Test Your Changes
 
 ```bash
+cd full-stack-web
 # Lint
-npm run lint
-
+bun run lint
 # Build (catches type errors)
-npm run build
+bun run build
 ```
 
 ### 4. Commit & Push
@@ -107,9 +144,10 @@ git push origin your-branch-name
 
 ### 5. Open a Pull Request
 
-- Describe what you changed
-- Link any related issues
+- Describe what you changed and why
+- Link any related issues or WIP references
 - Explain how to test
+- Highlight elements for the next *WIP Wednesday*
 
 ---
 
@@ -131,7 +169,7 @@ function calculateNOVA(tam: any, complexity: any): any {
 
 ### React Components
 
-```typescript
+```tsx
 // ✅ Good - clear naming, explicit props
 interface PaperCardProps {
   title: string;
@@ -152,72 +190,35 @@ export function PaperCard({ title, authors, novaScore, onClaim }: PaperCardProps
 }
 ```
 
-### Tailwind CSS
+### Tailwind CSS v4
 
 ```tsx
-// ✅ Good - use design tokens
-<div className="bg-surface text-text-primary border-border">
+// ✅ Good - modern utility tokens
+<div className="bg-surface text-text-primary border-border"></div>
 
-// ❌ Bad - hardcoded colors
-<div className="bg-gray-900 text-white border-gray-700">
+// ❌ Bad - hardcoded old palettes
+<div className="bg-gray-900 text-white border-gray-700"></div>
 ```
 
 ---
 
 ## Project Layout
 
+```text
+forge/
+├── full-stack-web/        # Main Next.js application
+│   ├── app/               # Next.js App Router (React 19)
+│   ├── components/        # React components & UI
+│   ├── lib/               # Utilities (Supabase, types)
+│   ├── supabase/          # DB schema & migrations
+│   └── agents/            # Python FastAPI Agent Service (Agno)
+│
+├── streamlit-prototype/   # Fast-iteration playground
+│   ├── app.py             # Streamlit entry point
+│   └── agents.py          # Agno agent configurations
+│
+└── docs/                  # Docs and WIP logs
 ```
-full-stack-web/
-├── app/                    # Next.js App Router pages
-│   ├── page.tsx           # Landing page
-│   ├── dashboard/        # Main dashboard
-│   └── api/              # API routes
-│
-├── components/            # React components
-│   ├── ui/               # Reusable UI (Button, Input, etc.)
-│   ├── PaperCard.tsx
-│   └── DetailPanel.tsx
-│
-├── lib/                   # Utilities
-│   ├── supabase.ts       # Supabase client
-│   ├── types.ts          # TypeScript types
-│   └── arxiv.ts          # arXiv API helper
-│
-└── agents/                # Python FastAPI
-    ├── server.py
-    └── requirements.txt
-```
-
----
-
-## Common Tasks
-
-### Add a New API Route
-
-1. Create `app/api/your-route/route.ts`
-2. Export GET/POST functions
-3. Access Supabase via `@/lib/supabase`
-
-### Add a New Component
-
-1. Create in `components/`
-2. Use TypeScript interfaces for props
-3. Use Tailwind for styling
-4. Export as named function
-
-### Add a Database Table
-
-1. Create migration in Supabase dashboard
-2. Add TypeScript type in `lib/types.ts`
-3. Add helper functions in appropriate lib file
-
----
-
-## Questions?
-
-- Open an issue for bugs or feature requests
-- Check existing issues before creating new ones
-- Be respectful and follow the code of conduct
 
 ---
 
@@ -226,4 +227,7 @@ full-stack-web/
 - [Next.js Docs](https://nextjs.org/docs)
 - [Supabase Docs](https://supabase.com/docs)
 - [Tailwind CSS v4](https://tailwindcss.com)
+- [Agno Framework](https://docs.agno.com)
+- [uv Python Manager](https://docs.astral.sh/uv/)
+- [Bun](https://bun.sh)
 - [Anthropic Claude](https://docs.anthropic.com)

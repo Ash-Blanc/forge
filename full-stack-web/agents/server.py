@@ -10,9 +10,12 @@ from dotenv import load_dotenv
 from agents import (
     SYSTEM_PROMPT,
     COMPETITOR_RESEARCH_PROMPT,
-    SAAS_TO_PAPERS_PROMPT
+    SAAS_TO_PAPERS_PROMPT,
+    run_analysis_agent,
+    run_competitor_agent,
+    run_saas_boost_agent,
 )
-from utils import build_prompt, parse_agent_json
+from utils import build_prompt, build_constellation_prompt, fetch_related_arxiv_papers, fetch_arxiv_meta, parse_agent_json
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env.local'))
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', 'streamlit-prototype', '.env'))
@@ -32,13 +35,22 @@ class ArxivMeta(BaseModel):
     userId: str
     model: Optional[str] = "amazon:amazon.nova-lite-v1:0"
 
+class ConstellationMeta(BaseModel):
+    title: str
+    authors: List[str]
+    published: str
+    abstract: str
+    arxivId: str
+    userId: str
+    model: Optional[str] = "amazon:amazon.nova-lite-v1:0"
+
 class SaasMeta(BaseModel):
     description: str
-    model: Optional[str] = "cerebras:llama3.1-8b"
+    model: Optional[str] = "amazon:amazon.nova-lite-v1:0"
 
 class CompetitorMeta(BaseModel):
     ideaContext: str
-    model: Optional[str] = "cerebras:llama3.1-8b"
+    model: Optional[str] = "amazon:amazon.nova-lite-v1:0"
 
 def get_model(model_id: str | None):
     """Instantiate the appropriate Agno model based on the provider prefix."""
@@ -75,24 +87,19 @@ def analyze_paper(meta: ArxivMeta):
 
     def generate():
         try:
-            from agno.agent import Agent
-
             model = get_model(meta.model)
                 
-            agent = Agent(
-                model=model,
-                description=SYSTEM_PROMPT,
-                markdown=False,
-            )
-
             full_text = ""
-            for chunk in agent.run(prompt, stream=True):
-                content = chunk.content if hasattr(chunk, 'content') else str(chunk)
-                if content:
-                    full_text += content
-                    yield f"data: {json.dumps({'type': 'delta', 'text': full_text})}\n\n"
+            analysis = None
             
-            analysis = parse_agent_json(full_text)
+            for chunk in run_analysis_agent(model, prompt):
+                if isinstance(chunk, dict) and chunk.get("__type") == "parsed":
+                    analysis = chunk.get("data")
+                    full_text = chunk.get("raw", full_text)
+                    continue
+                full_text += chunk
+                yield f"data: {json.dumps({'type': 'delta', 'text': full_text})}\n\n"
+            
             if not analysis:
                 raise ValueError("No JSON in response")
             
@@ -117,41 +124,72 @@ def analyze_paper(meta: ArxivMeta):
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
+@app.post("/analyze-constellation")
+def analyze_constellation(meta: ConstellationMeta):
+    def generate():
+        try:
+            # 1. Yield initial progress
+            yield f"data: {json.dumps({'type': 'status', 'message': 'Finding related papers via Semantic Scholar...'})}\n\n"
+            
+            # 2. Fetch related papers
+            related = fetch_related_arxiv_papers(meta.dict(), meta.arxivId, limit=4)
+            if not related:
+                yield f"data: {json.dumps({'type': 'status', 'message': 'Proceeding with single paper (no related found)...'})}\n\n"
+                
+            yield f"data: {json.dumps({'type': 'status', 'message': 'Fetching full abstracts from arXiv...'})}\n\n"
+            
+            enriched_related = []
+            for r in related:
+                r_meta = fetch_arxiv_meta(r["arxivId"])
+                if r_meta:
+                    r["abstract"] = r_meta.get("abstract", "")
+                    enriched_related.append(r)
+            
+            # 3. Build Prompt
+            prompt = build_constellation_prompt(meta.dict(), enriched_related)
+            
+            yield f"data: {json.dumps({'type': 'status', 'message': 'Analyzing constellation...'})}\n\n"
+            
+            model = get_model(meta.model)
+            full_text = ""
+            analysis = None
+            
+            for chunk in run_analysis_agent(model, prompt):
+                if isinstance(chunk, dict) and chunk.get("__type") == "parsed":
+                    analysis = chunk.get("data")
+                    full_text = chunk.get("raw", full_text)
+                    continue
+                full_text += chunk
+                yield f"data: {json.dumps({'type': 'delta', 'text': full_text})}\n\n"
+            
+            if not analysis:
+                raise ValueError("No JSON in response")
+            
+            yield f"data: {json.dumps({'type': 'done', 'analysis': analysis})}\n\n"
+            
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
 @app.post("/analyze-saas")
 def analyze_saas(meta: SaasMeta):
     def generate():
         try:
-            from agno.agent import Agent
-            from tools import SemanticScholarTools
-
             model = get_model(meta.model)
 
-            tools = [SemanticScholarTools()]
-            agent = Agent(
-                model=model,
-                description=SAAS_TO_PAPERS_PROMPT,
-                tools=tools,
-                markdown=False
-            )
-            
-            prompt = f"""Find the most relevant recent arXiv research papers for this SaaS product:
-
-{meta.description}
-
-Use the Semantic Scholar tool or Arxiv Search tool to find REAL papers. 
-If Semantic Scholar hits a rate limit, use Arxiv Tools to search.
-Prioritize papers that have an verifiable arXiv ID. Return JSON only."""
-
             full_text = ""
-            for chunk in agent.run(prompt, stream=True):
-                content = chunk.content if hasattr(chunk, 'content') else str(chunk)
-                if content:
-                    full_text += content
-                    yield f"data: {json.dumps({'type': 'delta', 'text': full_text})}\n\n"
+            analysis = None
+            for chunk in run_saas_boost_agent(meta.description, model):
+                if isinstance(chunk, dict) and chunk.get("__type") == "parsed":
+                    analysis = chunk.get("data")
+                    full_text = chunk.get("raw", full_text)
+                    continue
+                full_text += chunk
+                yield f"data: {json.dumps({'type': 'delta', 'text': full_text})}\n\n"
             
-            analysis = parse_agent_json(full_text)
             if not analysis:
-                raise ValueError("No JSON in response")
+                raise ValueError("No valid JSON generated for SaaS Boost")
             
             yield f"data: {json.dumps({'type': 'done', 'analysis': analysis})}\n\n"
             
@@ -164,28 +202,20 @@ Prioritize papers that have an verifiable arXiv ID. Return JSON only."""
 def analyze_competitors(meta: CompetitorMeta):
     def generate():
         try:
-            from agno.agent import Agent
-            from agno.tools.parallel import ParallelTools
-
             model = get_model(meta.model)
 
-            agent = Agent(
-                model=model,
-                description=COMPETITOR_RESEARCH_PROMPT,
-                tools=[ParallelTools(enable_search=True, enable_extract=True, max_results=5)],
-                markdown=False,
-            )
-
             full_text = ""
-            for chunk in agent.run(meta.ideaContext, stream=True):
-                content = chunk.content if hasattr(chunk, 'content') else str(chunk)
-                if content:
-                    full_text += content
-                    yield f"data: {json.dumps({'type': 'delta', 'text': full_text})}\n\n"
+            analysis = None
+            for chunk in run_competitor_agent(meta.ideaContext, model):
+                if isinstance(chunk, dict) and chunk.get("__type") == "parsed":
+                    analysis = chunk.get("data")
+                    full_text = chunk.get("raw", full_text)
+                    continue
+                full_text += chunk
+                yield f"data: {json.dumps({'type': 'delta', 'text': full_text})}\n\n"
             
-            analysis = parse_agent_json(full_text)
             if not analysis:
-                raise ValueError("No JSON in response")
+                raise ValueError("No valid JSON generated for Competitor Intelligence")
             
             yield f"data: {json.dumps({'type': 'done', 'analysis': analysis})}\n\n"
             
