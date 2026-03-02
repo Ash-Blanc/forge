@@ -1,0 +1,25 @@
+# Fixed benchmark set for FORGE MVP quality gate (paper -> credible build thesis)
+papers:
+  - id: "2307.08691"
+    name: "Llama 2"
+    domain: "foundation_models"
+    checks:
+      - "Captures research problem and method clearly"
+      - "References concrete evidence/results from the paper"
+      - "Produces one credible execution thesis + two backup paths"
+
+  - id: "2310.06825"
+    name: "Direct Preference Optimization"
+    domain: "alignment"
+    checks:
+      - "Explains novelty vs prior RLHF workflow accurately"
+      - "States limits/assumptions without hype"
+      - "Recommended path is specific, scoped, and feasible"
+
+  - id: "2402.03300"
+    name: "Sora Technical Report"
+    domain: "multimodal_generation"
+    checks:
+      - "Summarizes method and practical implications faithfully"
+      - "Avoids fabricated metrics/datasets"
+      - "Commercial paths map clearly to paper capabilities"

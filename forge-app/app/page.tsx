@@ -56,15 +56,46 @@ export default function LandingPage() {
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
-    const goToMainCta = () => {
-        router.push(isLoggedIn ? "/dashboard" : "/onboarding");
+    const trackCta = (ctaId: string, destination: string) => {
+        if (typeof window === "undefined") return;
+
+        const detail = {
+            ctaId,
+            destination,
+            pagePath: window.location.pathname,
+            ts: Date.now(),
+        };
+
+        window.dispatchEvent(new CustomEvent("forge:cta_click", { detail }));
+
+        const gtag = (window as Window & {
+            gtag?: (command: string, eventName: string, params: Record<string, string>) => void;
+        }).gtag;
+
+        if (gtag) {
+            gtag("event", "forge_cta_click", {
+                cta_id: ctaId,
+                destination,
+                page_path: window.location.pathname,
+            });
+        }
+    };
+
+    const navigateWithTracking = (ctaId: string, destination: string) => {
+        trackCta(ctaId, destination);
+        router.push(destination);
+    };
+
+    const goToMainCta = (ctaId: string) => {
+        const destination = isLoggedIn ? "/dashboard" : "/onboarding";
+        navigateWithTracking(ctaId, destination);
     };
 
     return (
-        <div className="min-h-screen bg-[#f7f3ea] text-[#17130c] font-sans flex flex-col">
+        <div className="lp-shell font-sans flex flex-col">
             <nav
                 className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${
-                    scrollY > 16 ? "border-b border-[#e8dfcf] bg-[#f7f3ea]/95 backdrop-blur" : "bg-transparent"
+                    scrollY > 16 ? "lp-nav-scrolled" : "bg-transparent"
                 }`}
             >
                 <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -75,15 +106,17 @@ export default function LandingPage() {
                     <div className="flex items-center gap-3">
                         {!isLoggedIn ? (
                             <button
-                                onClick={() => router.push("/onboarding")}
+                                data-cta-id="nav-sign-in"
+                                onClick={() => navigateWithTracking("nav-sign-in", "/onboarding")}
                                 className="text-sm font-medium text-[#5a4d36] hover:text-[#17130c]"
                             >
                                 Sign in
                             </button>
                         ) : null}
                         <button
-                            onClick={goToMainCta}
-                            className="rounded-xl bg-[#17130c] text-[#fff9eb] px-4 py-2 text-sm font-semibold hover:opacity-90 transition"
+                            data-cta-id="nav-main-cta"
+                            onClick={() => goToMainCta("nav-main-cta")}
+                            className="lp-btn-dark px-4 py-2 text-sm"
                         >
                             {isLoggedIn ? "Open Dashboard" : "Get Started"}
                         </button>
@@ -93,12 +126,12 @@ export default function LandingPage() {
 
             <main className="pt-28 pb-20 px-6">
                 <section className="max-w-6xl mx-auto">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-[#fff9eb] border border-[#eadfc9] px-4 py-1 text-xs font-semibold tracking-wide text-[#5f4e33]">
+                    <div className="lp-reveal inline-flex items-center gap-2 rounded-full bg-[#fff9eb] border border-[#eadfc9] px-4 py-1 text-xs font-semibold tracking-wide text-[#5f4e33]">
                         <span className="inline-block w-2 h-2 rounded-full bg-[#4b9a72]" />
                         BUILT FOR TECHNICAL FOUNDERS
                     </div>
                     <div className="mt-6 grid lg:grid-cols-[1.1fr_0.9fr] gap-10 items-start">
-                        <div>
+                        <div className="lp-reveal">
                             <h1 className="text-[clamp(2.2rem,6vw,4.6rem)] font-black leading-[1.03] tracking-tight">
                                 Turn research papers
                                 <br />
@@ -112,14 +145,19 @@ export default function LandingPage() {
                             </p>
                             <div className="mt-8 flex flex-col sm:flex-row gap-3">
                                 <button
-                                    onClick={goToMainCta}
-                                    className="rounded-xl bg-[#e86f2d] text-[#fffaf1] px-6 py-3 text-base font-bold hover:translate-y-[-1px] transition"
+                                    data-cta-id="hero-primary"
+                                    onClick={() => goToMainCta("hero-primary")}
+                                    className="lp-btn-primary px-6 py-3 text-base"
                                 >
                                     Get Your First Blueprint
                                 </button>
                                 <button
-                                    onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
-                                    className="rounded-xl border border-[#d8cab2] bg-[#fff9ec] px-6 py-3 text-base font-semibold text-[#17130c] hover:bg-[#fff5e1] transition"
+                                    data-cta-id="hero-how-it-works"
+                                    onClick={() => {
+                                        trackCta("hero-how-it-works", "#how-it-works");
+                                        document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" });
+                                    }}
+                                    className="lp-btn-secondary px-6 py-3 text-base"
                                 >
                                     See How It Works
                                 </button>
@@ -127,7 +165,7 @@ export default function LandingPage() {
                             <p className="mt-4 text-sm text-[#736548]">No setup friction. Start in under 2 minutes.</p>
                         </div>
 
-                        <div className="rounded-2xl bg-[#fff9ec] border border-[#e6dbc6] p-6 md:p-8 shadow-[0_20px_50px_-30px_rgba(23,19,12,0.45)]">
+                        <div className="lp-card lp-reveal p-6 md:p-8 shadow-[0_20px_50px_-30px_rgba(23,19,12,0.45)]">
                             <p className="text-xs tracking-wide font-bold text-[#7b6947]">LIVE OUTPUT PREVIEW</p>
                             <h3 className="mt-3 text-xl font-extrabold leading-snug">
                                 Multi-agent teardown:
@@ -143,8 +181,9 @@ export default function LandingPage() {
                                 ))}
                             </ul>
                             <button
-                                onClick={goToMainCta}
-                                className="mt-6 w-full rounded-xl bg-[#17130c] text-[#fff9eb] py-3 font-semibold hover:opacity-90 transition"
+                                data-cta-id="preview-generate"
+                                onClick={() => goToMainCta("preview-generate")}
+                                className="lp-btn-dark mt-6 w-full py-3"
                             >
                                 Generate My Breakdown
                             </button>
@@ -168,7 +207,7 @@ export default function LandingPage() {
                     </div>
                     <div className="mt-8 grid md:grid-cols-3 gap-4">
                         {WORKFLOW.map((step, index) => (
-                            <div key={step.title} className="rounded-2xl bg-[#fff9ec] border border-[#e6dbc6] p-6">
+                            <div key={step.title} className="lp-card p-6">
                                 <p className="text-xs font-bold text-[#7b6947]">STEP {index + 1}</p>
                                 <h3 className="mt-3 text-xl font-bold">{step.title}</h3>
                                 <p className="mt-3 text-sm leading-relaxed text-[#5b4f37]">{step.desc}</p>
@@ -178,13 +217,13 @@ export default function LandingPage() {
                 </section>
 
                 <section className="max-w-6xl mx-auto mt-20">
-                    <div className="rounded-3xl bg-[#17130c] text-[#fff8eb] px-6 py-10 md:px-10">
-                        <p className="text-xs font-bold tracking-[0.16em] text-[#d4b481] uppercase">Impact</p>
+                    <div className="rounded-3xl border border-[#e4d7be] bg-[#f3ead8] text-[#17130c] px-6 py-10 md:px-10">
+                        <p className="text-xs font-bold tracking-[0.16em] text-[#7b6947] uppercase">Impact</p>
                         <div className="mt-6 grid sm:grid-cols-3 gap-8">
                             {OUTCOMES.map((item) => (
                                 <div key={item.label}>
                                     <p className="text-3xl md:text-4xl font-black">{item.value}</p>
-                                    <p className="mt-2 text-sm text-[#ddceb8]">{item.label}</p>
+                                    <p className="mt-2 text-sm text-[#5b4e37]">{item.label}</p>
                                 </div>
                             ))}
                         </div>
@@ -195,7 +234,7 @@ export default function LandingPage() {
                     <h2 className="text-3xl md:text-4xl font-black tracking-tight">What founders say after their first session.</h2>
                     <div className="mt-8 grid md:grid-cols-2 gap-4">
                         {TESTIMONIALS.map((item) => (
-                            <div key={item.author} className="rounded-2xl border border-[#e6dbc6] bg-[#fff9ec] p-6">
+                            <div key={item.author} className="lp-card p-6">
                                 <p className="text-[#2f281b] leading-relaxed">&quot;{item.quote}&quot;</p>
                                 <p className="mt-4 text-sm font-semibold text-[#6d5e42]">{item.author}</p>
                             </div>
@@ -215,14 +254,16 @@ export default function LandingPage() {
                         </p>
                         <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
                             <button
-                                onClick={goToMainCta}
-                                className="rounded-xl bg-[#e86f2d] text-[#fffaf1] px-8 py-3 text-base font-bold hover:translate-y-[-1px] transition"
+                                data-cta-id="final-start-building"
+                                onClick={() => goToMainCta("final-start-building")}
+                                className="lp-btn-primary px-8 py-3 text-base"
                             >
                                 Start Building
                             </button>
                             <button
-                                onClick={() => router.push("/dashboard")}
-                                className="rounded-xl border border-[#d8cab2] bg-white px-8 py-3 text-base font-semibold text-[#17130c] hover:bg-[#fdf7ea] transition"
+                                data-cta-id="final-explore-dashboard"
+                                onClick={() => navigateWithTracking("final-explore-dashboard", "/dashboard")}
+                                className="lp-btn-secondary bg-white px-8 py-3 text-base"
                             >
                                 Explore Dashboard
                             </button>
@@ -239,10 +280,18 @@ export default function LandingPage() {
                     </div>
                     <p className="text-sm text-[#7b6947]">© {new Date().getFullYear()} Forge Labs.</p>
                     <div className="flex items-center gap-6 text-sm text-[#7b6947]">
-                        <button onClick={() => router.push("/onboarding")} className="hover:text-[#17130c]">
+                        <button
+                            data-cta-id="footer-get-started"
+                            onClick={() => navigateWithTracking("footer-get-started", "/onboarding")}
+                            className="hover:text-[#17130c]"
+                        >
                             Get started
                         </button>
-                        <button onClick={() => router.push("/dashboard")} className="hover:text-[#17130c]">
+                        <button
+                            data-cta-id="footer-product"
+                            onClick={() => navigateWithTracking("footer-product", "/dashboard")}
+                            className="hover:text-[#17130c]"
+                        >
                             Product
                         </button>
                     </div>

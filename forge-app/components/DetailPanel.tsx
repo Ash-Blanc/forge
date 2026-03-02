@@ -100,7 +100,7 @@ export default function DetailPanel({ paper, user, onFollow, onClaim, onComment,
                         {/* Narrative — the main read */}
                         <div className="mb-[18px]">
                             <SectionLabel>Analysis</SectionLabel>
-                            <p className="text-[#8fa3be] text-[0.84rem] leading-[1.7]">
+                            <p className="text-[#4e432e] text-[0.84rem] leading-[1.7]">
                                 {typed}
                                 {typing && <span className="animate-blink text-accent ml-[1px]">▌</span>}
                             </p>
@@ -110,7 +110,7 @@ export default function DetailPanel({ paper, user, onFollow, onClaim, onComment,
                         {paper.opportunity && (
                             <div className="border-l-2 border-accent/40 pl-3 mb-4 bg-accent/5 p-3 rounded-r-md">
                                 <SectionLabel>Opportunity</SectionLabel>
-                                <p className="text-[#c8d4e6] text-[0.84rem] leading-[1.6]">{paper.opportunity}</p>
+                                <p className="text-[#2f281b] text-[0.84rem] leading-[1.6]">{paper.opportunity}</p>
                             </div>
                         )}
 
@@ -188,7 +188,7 @@ export default function DetailPanel({ paper, user, onFollow, onClaim, onComment,
                                         <RoleBadge role={c.user.role} />
                                         <TimeAgo ts={c.createdAt} />
                                     </div>
-                                    <p className="text-[#8fa3be] text-[0.82rem] leading-[1.6] m-0">{c.text}</p>
+                                    <p className="text-[#4e432e] text-[0.82rem] leading-[1.6] m-0">{c.text}</p>
                                 </div>
                             </div>
                         ))}
@@ -237,7 +237,7 @@ export default function DetailPanel({ paper, user, onFollow, onClaim, onComment,
                                         <SectionLabel>Build Log</SectionLabel>
                                         {claimant.updates.map(u => (
                                             <div key={u.id} className="mb-3 pl-3 border-l-2 border-border/50">
-                                                <p className="text-[#8fa3be] text-[0.82rem] leading-[1.55] m-0 mb-[3px]">{u.text}</p>
+                                                <p className="text-[#4e432e] text-[0.82rem] leading-[1.55] m-0 mb-[3px]">{u.text}</p>
                                                 <TimeAgo ts={u.createdAt} />
                                             </div>
                                         ))}

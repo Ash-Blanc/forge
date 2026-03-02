@@ -2,6 +2,7 @@
 import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
+const AGNO_BASE_URL = process.env.AGNO_BASE_URL ?? "http://127.0.0.1:8321";
 
 export async function POST(req: NextRequest) {
     const body = await req.json();
@@ -20,7 +21,7 @@ Prioritize papers that have an verifiable arXiv ID.
 CRITICAL: You must output ONLY raw JSON. Do not include introductory text like 'Here are the papers...'. Start your response with { and end with }.`;
 
     try {
-        const agnoRes = await fetch("http://127.0.0.1:8321/agents/saas-boost-agent/runs", {
+        const agnoRes = await fetch(`${AGNO_BASE_URL}/agents/market-strategist/runs`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

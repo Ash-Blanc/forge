@@ -89,7 +89,7 @@ export default function OnboardingPage() {
                             autoFocus
                         />
                         {err && (
-                            <p className="text-red-custom text-[0.65rem] font-mono animate-fade-up">{err}</p>
+                            <p className="text-[#c43f3f] text-[0.65rem] font-mono animate-fade-up">{err}</p>
                         )}
                     </div>
 

@@ -20,7 +20,7 @@ export default function PaperCard({ paper, selected, user, onSelect, onFollow, o
     return (
         <article
             onClick={() => onSelect(paper)}
-            className={`card animate-fade-up p-[14px_16px] cursor-pointer mb-2 transition-all duration-200 hover:scale-[1.01] hover:border-border-h ${selected ? "bg-elevated border-border-h shadow-[0_4px_24px_rgba(0,0,0,0.3)]" : "bg-surface border-border hover:shadow-[0_2px_12px_rgba(0,0,0,0.2)]"
+            className={`card animate-fade-up p-[14px_16px] cursor-pointer mb-2 transition-all duration-200 hover:scale-[1.01] hover:border-border-h ${selected ? "bg-elevated border-border-h shadow-[0_8px_26px_-16px_rgba(23,19,12,0.35)]" : "bg-surface border-border hover:shadow-[0_8px_20px_-16px_rgba(23,19,12,0.32)]"
                 }`}
         >
             {/* Header */}
@@ -38,7 +38,7 @@ export default function PaperCard({ paper, selected, user, onSelect, onFollow, o
             </div>
 
             {/* Title */}
-            <h3 className="text-[#c8d4e6] text-[0.875rem] font-semibold leading-[1.45] mb-2 line-clamp-2">
+            <h3 className="text-[#2f281b] text-[0.875rem] font-semibold leading-[1.45] mb-2 line-clamp-2">
                 {paper.title}
             </h3>
 

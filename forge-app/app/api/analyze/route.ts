@@ -1,8 +1,8 @@
 // app/api/analyze/route.ts
 import { NextRequest } from "next/server";
-import type { ArxivMeta } from "@/lib/arxiv";
 
 export const runtime = "nodejs";
+const AGNO_BASE_URL = process.env.AGNO_BASE_URL ?? "http://127.0.0.1:8321";
 
 export async function POST(req: NextRequest) {
     const body = await req.json();
@@ -19,7 +19,7 @@ Abstract: ${(body.abstract || "").slice(0, 5000)}
 Return ONLY valid JSON.`;
 
     try {
-        const agnoRes = await fetch("http://127.0.0.1:8321/agents/paper-analysis-agent/runs", {
+        const agnoRes = await fetch(`${AGNO_BASE_URL}/agents/forge-analyst/runs`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

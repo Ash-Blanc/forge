@@ -58,7 +58,7 @@ export function StatusDot({ status }: { status: string }) {
     );
 }
 
-export function Tag({ text, color = "var(--color-blue)" }: { text: string; color?: string }) {
+export function Tag({ text, color = "var(--blue)" }: { text: string; color?: string }) {
     return (
         <span
             className="rounded-sm px-1.5 text-[0.63rem] font-mono"

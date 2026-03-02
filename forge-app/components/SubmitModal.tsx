@@ -126,7 +126,7 @@ export default function SubmitModal({ user, onPublish, onClose }: Props) {
 
                 {/* Error */}
                 {errMsg && (
-                    <div style={{ background: "var(--red-dim)", border: "1px solid var(--red)40", borderRadius: "var(--r-md)", padding: "7px 11px", color: "var(--red)", fontSize: ".72rem", fontFamily: "var(--mono)", marginBottom: 12 }}>
+                    <div style={{ background: "var(--red-dim)", border: "1px solid color-mix(in srgb, var(--red) 40%, transparent)", borderRadius: "var(--r-md)", padding: "7px 11px", color: "var(--red)", fontSize: ".72rem", fontFamily: "var(--mono)", marginBottom: 12 }}>
                         {errMsg}
                     </div>
                 )}
