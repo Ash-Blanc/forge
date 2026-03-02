@@ -55,3 +55,6 @@ jobs:
 
     - name: Build Next.js
       run: bun run build
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: "https://dummy.supabase.co"
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "dummy-key" # these are dummies for build time only
