@@ -27,10 +27,13 @@ export async function fetchArxivMeta(rawId: string): Promise<ArxivMeta> {
     const totalMatch = xml.match(/<opensearch:totalResults[^>]*>(\d+)<\/opensearch:totalResults>/);
     if (totalMatch && totalMatch[1] === "0") throw new Error("No paper found for this arXiv ID");
 
-    const title = xml.match(/<title>(?!ArXiv|Search)([^<]+)<\/title>/)?.[1]?.replace(/\s+/g, " ").trim();
-    const abstract = xml.match(/<summary>([^<]+)<\/summary>/)?.[1]?.replace(/\s+/g, " ").trim();
-    const published = xml.match(/<published>([^T]+)/)?.[1]?.trim();
-    const authorMatches = [...xml.matchAll(/<name>([^<]+)<\/name>/g)].map(m => m[1].trim());
+    const entryXml = xml.match(/<entry>([\s\S]*?)<\/entry>/)?.[1];
+    if (!entryXml) throw new Error("Could not parse paper entry from arXiv response");
+
+    const title = entryXml.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.replace(/\s+/g, " ").trim();
+    const abstract = entryXml.match(/<summary>([\s\S]*?)<\/summary>/)?.[1]?.replace(/\s+/g, " ").trim();
+    const published = entryXml.match(/<published>([^T<]+)/)?.[1]?.trim();
+    const authorMatches = [...entryXml.matchAll(/<name>([^<]+)<\/name>/g)].map(m => m[1].trim());
 
     if (!title) throw new Error("Could not parse paper title from arXiv response");
 

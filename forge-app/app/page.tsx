@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 
 const TRUST_BADGES = ["Founders", "Indie Hackers", "Product Engineers", "Research Teams"];
 
@@ -44,11 +45,8 @@ const TESTIMONIALS = [
 
 export default function LandingPage() {
     const router = useRouter();
+    const { isSignedIn } = useAuth();
     const [scrollY, setScrollY] = useState(0);
-    const [isLoggedIn] = useState(() => {
-        if (typeof window === "undefined") return false;
-        return !!window.localStorage.getItem("forge-user");
-    });
 
     useEffect(() => {
         const handleScroll = () => setScrollY(window.scrollY);
@@ -87,7 +85,7 @@ export default function LandingPage() {
     };
 
     const goToMainCta = (ctaId: string) => {
-        const destination = isLoggedIn ? "/dashboard" : "/onboarding";
+        const destination = isSignedIn ? "/dashboard" : "/sign-in";
         navigateWithTracking(ctaId, destination);
     };
 
@@ -104,10 +102,10 @@ export default function LandingPage() {
                         <span className="text-[#e86f2d] text-lg">⬡</span>
                     </button>
                     <div className="flex items-center gap-3">
-                        {!isLoggedIn ? (
+                        {!isSignedIn ? (
                             <button
                                 data-cta-id="nav-sign-in"
-                                onClick={() => navigateWithTracking("nav-sign-in", "/onboarding")}
+                                onClick={() => navigateWithTracking("nav-sign-in", "/sign-in")}
                                 className="text-sm font-medium text-[#5a4d36] hover:text-[#17130c]"
                             >
                                 Sign in
@@ -118,7 +116,7 @@ export default function LandingPage() {
                             onClick={() => goToMainCta("nav-main-cta")}
                             className="lp-btn-dark px-4 py-2 text-sm"
                         >
-                            {isLoggedIn ? "Open Dashboard" : "Get Started"}
+                            {isSignedIn ? "Open Dashboard" : "Get Started"}
                         </button>
                     </div>
                 </div>
@@ -282,7 +280,7 @@ export default function LandingPage() {
                     <div className="flex items-center gap-6 text-sm text-[#7b6947]">
                         <button
                             data-cta-id="footer-get-started"
-                            onClick={() => navigateWithTracking("footer-get-started", "/onboarding")}
+                            onClick={() => navigateWithTracking("footer-get-started", "/sign-in")}
                             className="hover:text-[#17130c]"
                         >
                             Get started

@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Avatar, RoleBadge, Spinner, Tag, SectionLabel } from "@/components/ui";
-import type { ForgeUser } from "@/lib/types";
+import { UserButton, useUser } from "@clerk/nextjs";
+import { Avatar, Spinner, Tag, SectionLabel } from "@/components/ui";
 
 type AppMode = "paper" | "saas" | "constellation";
 
@@ -18,6 +17,7 @@ interface Session {
     mode: AppMode;
     title: string;
     timestamp: string;
+    inputText?: string;
     arxivId?: string;
     meta?: ArxivMeta;
     data?: AnalysisData;
@@ -35,6 +35,20 @@ interface ArxivMeta {
 interface AnalysisData {
     output: unknown;
     outputText?: string;
+}
+
+interface SessionApiRecord {
+    id: string;
+    mode: AppMode;
+    title: string;
+    input_text: string | null;
+    arxiv_id: string | null;
+    meta: ArxivMeta | null;
+    output: unknown;
+    output_text: string | null;
+    error: string | null;
+    created_at: string;
+    updated_at: string;
 }
 
 const extractArxivId = (input: string): string | null => {
@@ -60,21 +74,109 @@ const trimTitle = (value: string): string => {
     return `${value.slice(0, 68)}...`;
 };
 
-const formatOutput = (value: unknown): string => {
-    if (typeof value === "string") return value;
-    try {
-        return JSON.stringify(value, null, 2);
-    } catch {
-        return String(value);
+const generateSmartTitle = (mode: AppMode, input: string): string => {
+    const cleaned = input.trim();
+    
+    if (mode === "paper") {
+        // For papers, use the input as-is (will be replaced with actual title from arXiv)
+        return `Research: ${cleaned}`;
     }
+    
+    if (mode === "saas") {
+        // Extract key product concept
+        const words = cleaned.split(/\s+/);
+        if (words.length <= 6) {
+            return cleaned;
+        }
+        // Take first meaningful phrase
+        const keyPhrase = words.slice(0, 6).join(" ");
+        return `${keyPhrase}...`;
+    }
+    
+    if (mode === "constellation") {
+        // Extract market/domain focus
+        const words = cleaned.split(/\s+/);
+        if (words.length <= 5) {
+            return cleaned;
+        }
+        // Focus on the core concept
+        const keyPhrase = words.slice(0, 5).join(" ");
+        return `${keyPhrase}...`;
+    }
+    
+    return cleaned;
+};
+
+const getPaperSessionTitle = (meta: ArxivMeta, arxivId: string): string => {
+    const raw = (meta.title || "").replace(/\s+/g, " ").trim();
+    if (!raw) return `Research: ${arxivId}`;
+    if (/^arxiv\s+query:/i.test(raw) || /^search\s+results?/i.test(raw)) {
+        return `Research: ${arxivId}`;
+    }
+    return raw;
+};
+
+const toLabel = (key: string): string =>
+    key
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .replace(/[_-]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+
+const toReadableText = (value: unknown, depth = 0): string => {
+    if (value == null) return "Not provided";
+    if (typeof value === "string") return value.trim() || "Not provided";
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+
+    if (Array.isArray(value)) {
+        if (!value.length) return "Not provided";
+        return value
+            .slice(0, 6)
+            .map((item) => toReadableText(item, depth + 1))
+            .filter((item) => item && item !== "Not provided")
+            .join(" • ");
+    }
+
+    if (typeof value === "object") {
+        const obj = value as Record<string, unknown>;
+        const preferredKeys = ["summary", "oneLiner", "coreBreakthrough", "recommendation", "thesis", "output"];
+        for (const key of preferredKeys) {
+            if (typeof obj[key] === "string" && obj[key]) return String(obj[key]);
+        }
+
+        if (depth > 1) return "Structured output available";
+
+        const pairs = Object.entries(obj).slice(0, 6);
+        if (!pairs.length) return "Not provided";
+        return pairs
+            .map(([k, v]) => `${toLabel(k)}: ${toReadableText(v, depth + 1)}`)
+            .join(" • ");
+    }
+
+    return "Not provided";
+};
+
+const getReadableSections = (output: unknown): Array<{ title: string; body: string }> => {
+    if (output == null) return [];
+    if (typeof output === "string") return [{ title: "Result", body: output.trim() || "No details returned." }];
+    if (Array.isArray(output)) return [{ title: "Result", body: toReadableText(output) }];
+    if (typeof output !== "object") return [{ title: "Result", body: String(output) }];
+
+    const entries = Object.entries(output as Record<string, unknown>);
+    if (!entries.length) return [{ title: "Result", body: "No details returned." }];
+
+    return entries
+        .map(([key, value]) => ({ title: toLabel(key), body: toReadableText(value) }))
+        .filter((section) => section.body && section.body !== "Not provided");
 };
 
 export default function DashboardPage() {
-    const router = useRouter();
-    const [user, setUser] = useState<ForgeUser | null>(null);
+    const { user, isLoaded, isSignedIn } = useUser();
     const [mode, setMode] = useState<AppMode>("paper");
     const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0].id);
     const [sessions, setSessions] = useState<Session[]>([]);
+    const [sessionsLoaded, setSessionsLoaded] = useState(false);
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
     const [input, setInput] = useState("");
     const [analyzing, setAnalyzing] = useState(false);
@@ -86,40 +188,104 @@ export default function DashboardPage() {
 
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const storedUser = localStorage.getItem("forge-user");
-        if (!storedUser) {
-            router.replace("/");
-            return;
+    const mapApiSession = (raw: SessionApiRecord): Session => {
+        let output: unknown = raw.output;
+        if (output == null && raw.output_text) {
+            output = safeJsonParse(raw.output_text);
         }
 
+        return {
+            id: raw.id,
+            mode: raw.mode,
+            title: raw.title,
+            timestamp: raw.updated_at || raw.created_at,
+            inputText: raw.input_text || undefined,
+            arxivId: raw.arxiv_id || undefined,
+            meta: raw.meta || undefined,
+            data: output == null ? undefined : { output, outputText: raw.output_text || undefined },
+            error: raw.error || undefined,
+        };
+    };
+
+    const parseApiError = async (res: Response, fallback: string): Promise<string> => {
         try {
-            setUser(JSON.parse(storedUser));
+            const payload = await res.json();
+            if (typeof payload?.error === "string" && payload.error) return payload.error;
+            if (typeof payload?.message === "string" && payload.message) return payload.message;
         } catch {
-            router.replace("/");
-            return;
+            // no-op
         }
+        return fallback;
+    };
 
-        const storedSessions = localStorage.getItem("forge-sessions");
-        if (!storedSessions) return;
+    const migrateLocalSessions = async () => {
+        const legacyRaw = localStorage.getItem("forge-sessions");
+        if (!legacyRaw) return;
 
         try {
-            const parsed = JSON.parse(storedSessions);
-            if (Array.isArray(parsed)) setSessions(parsed as Session[]);
+            const parsed = JSON.parse(legacyRaw);
+            if (!Array.isArray(parsed) || !parsed.length) {
+                localStorage.removeItem("forge-sessions");
+                return;
+            }
+
+            const res = await fetch("/api/sessions/migrate-local", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessions: parsed }),
+            });
+            if (res.ok) {
+                localStorage.removeItem("forge-sessions");
+            }
         } catch {
             localStorage.removeItem("forge-sessions");
         }
-    }, [router]);
-
-    const persistSessions = (next: Session[]) => {
-        setSessions(next);
-        localStorage.setItem("forge-sessions", JSON.stringify(next));
     };
+
+    const fetchSessions = async () => {
+        const res = await fetch("/api/sessions", { cache: "no-store" });
+        if (!res.ok) {
+            throw new Error(await parseApiError(res, "Failed to load sessions."));
+        }
+
+        const payload = (await res.json()) as SessionApiRecord[];
+        const mapped = Array.isArray(payload) ? payload.map(mapApiSession) : [];
+        setSessions(mapped);
+        setCurrentSessionId((prev) => {
+            if (prev && mapped.some((s) => s.id === prev)) return prev;
+            return mapped[0]?.id ?? null;
+        });
+    };
+
+    useEffect(() => {
+        if (!isLoaded || !isSignedIn) return;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                await migrateLocalSessions();
+                if (!cancelled) await fetchSessions();
+            } catch (e: unknown) {
+                if (!cancelled) {
+                    setError(e instanceof Error ? e.message : "Failed to load sessions.");
+                }
+            } finally {
+                if (!cancelled) {
+                    setSessionsLoaded(true);
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isLoaded, isSignedIn]);
 
     const upsertSession = (session: Session) => {
         setSessions((prev) => {
-            const next = [session, ...prev.filter((s) => s.id !== session.id)];
-            localStorage.setItem("forge-sessions", JSON.stringify(next));
+            const next = [session, ...prev.filter((s) => s.id !== session.id)].sort(
+                (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+            );
             return next;
         });
     };
@@ -128,18 +294,70 @@ export default function DashboardPage() {
         setSessions((prev) => {
             const existing = prev.find((s) => s.id === sessionId);
             if (!existing) return prev;
-            const updated = { ...existing, ...patch };
-            const next = [updated, ...prev.filter((s) => s.id !== sessionId)];
-            localStorage.setItem("forge-sessions", JSON.stringify(next));
-            return next;
+            const updated = { ...existing, ...patch, timestamp: new Date().toISOString() };
+            return [updated, ...prev.filter((s) => s.id !== sessionId)];
         });
     };
 
-    const deleteSession = (sessionId: string) => {
-        const updated = sessions.filter((s) => s.id !== sessionId);
-        persistSessions(updated);
+    const createSession = async (payload: {
+        mode: AppMode;
+        title: string;
+        inputText?: string;
+        arxivId?: string;
+        meta?: ArxivMeta;
+    }): Promise<Session> => {
+        const res = await fetch("/api/sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+            throw new Error(await parseApiError(res, "Failed to create session."));
+        }
+
+        const created = (await res.json()) as SessionApiRecord;
+        const mapped = mapApiSession(created);
+        upsertSession(mapped);
+        return mapped;
+    };
+
+    const patchSessionRemote = async (sessionId: string, patch: Partial<Session>) => {
+        const body: Record<string, unknown> = {};
+        if (patch.title !== undefined) body.title = patch.title;
+        if (patch.inputText !== undefined) body.inputText = patch.inputText;
+        if (patch.arxivId !== undefined) body.arxivId = patch.arxivId;
+        if (patch.meta !== undefined) body.meta = patch.meta;
+        if (patch.data?.output !== undefined) body.output = patch.data.output;
+        if (patch.data?.outputText !== undefined) body.outputText = patch.data.outputText;
+        if (patch.error !== undefined) body.error = patch.error;
+
+        const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            throw new Error(await parseApiError(res, "Failed to update session."));
+        }
+
+        const updated = (await res.json()) as SessionApiRecord;
+        upsertSession(mapApiSession(updated));
+    };
+
+    const deleteSession = async (sessionId: string) => {
+        const current = sessions;
+        const updated = current.filter((s) => s.id !== sessionId);
+        setSessions(updated);
         if (currentSessionId === sessionId) {
             setCurrentSessionId(updated[0]?.id ?? null);
+        }
+
+        const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
+            method: "DELETE",
+        });
+        if (!res.ok) {
+            setSessions(current);
+            throw new Error(await parseApiError(res, "Failed to delete session."));
         }
     };
 
@@ -215,7 +433,6 @@ export default function DashboardPage() {
             setProgress((p) => (p >= 92 ? p : p + 7));
         }, 420);
 
-        const startedAt = new Date().toISOString();
         let activeSessionId: string | null = null;
 
         try {
@@ -233,19 +450,15 @@ export default function DashboardPage() {
                 }
 
                 const meta = (await metaRes.json()) as ArxivMeta;
-                const sessionId = arxivId;
-                const session: Session = {
-                    id: sessionId,
+                const session = await createSession({
                     mode: targetMode,
-                    title: trimTitle(meta.title || `Research: ${arxivId}`),
-                    timestamp: startedAt,
+                    title: trimTitle(getPaperSessionTitle(meta, arxivId)),
+                    inputText: targetInput,
                     arxivId,
                     meta,
-                };
-
-                upsertSession(session);
-                activeSessionId = sessionId;
-                setCurrentSessionId(sessionId);
+                });
+                activeSessionId = session.id;
+                setCurrentSessionId(session.id);
                 setInput("");
 
                 setStatusText("Running Forge Analyst");
@@ -256,7 +469,14 @@ export default function DashboardPage() {
                 });
 
                 const final = await readStreamingResponse(analyzeRes);
-                patchSession(sessionId, {
+                patchSession(session.id, {
+                    data: {
+                        output: typeof final === "string" ? safeJsonParse(final) : final,
+                        outputText: typeof final === "string" ? final : undefined,
+                    },
+                    error: undefined,
+                });
+                await patchSessionRemote(session.id, {
                     data: {
                         output: typeof final === "string" ? safeJsonParse(final) : final,
                         outputText: typeof final === "string" ? final : undefined,
@@ -266,17 +486,13 @@ export default function DashboardPage() {
             }
 
             if (targetMode === "saas") {
-                const sessionId = `saas_${Date.now()}`;
-                const session: Session = {
-                    id: sessionId,
+                const session = await createSession({
                     mode: targetMode,
-                    title: trimTitle(`SaaS: ${targetInput}`),
-                    timestamp: startedAt,
-                };
-
-                upsertSession(session);
-                activeSessionId = sessionId;
-                setCurrentSessionId(sessionId);
+                    title: trimTitle(generateSmartTitle(targetMode, targetInput)),
+                    inputText: targetInput,
+                });
+                activeSessionId = session.id;
+                setCurrentSessionId(session.id);
                 setInput("");
 
                 setStatusText("Researching related papers");
@@ -287,7 +503,14 @@ export default function DashboardPage() {
                 });
 
                 const final = await readStreamingResponse(saasRes);
-                patchSession(sessionId, {
+                patchSession(session.id, {
+                    data: {
+                        output: typeof final === "string" ? safeJsonParse(final) : final,
+                        outputText: typeof final === "string" ? final : undefined,
+                    },
+                    error: undefined,
+                });
+                await patchSessionRemote(session.id, {
                     data: {
                         output: typeof final === "string" ? safeJsonParse(final) : final,
                         outputText: typeof final === "string" ? final : undefined,
@@ -297,17 +520,13 @@ export default function DashboardPage() {
             }
 
             if (targetMode === "constellation") {
-                const sessionId = `constellation_${Date.now()}`;
-                const session: Session = {
-                    id: sessionId,
+                const session = await createSession({
                     mode: targetMode,
-                    title: trimTitle(`Constellation: ${targetInput}`),
-                    timestamp: startedAt,
-                };
-
-                upsertSession(session);
-                activeSessionId = sessionId;
-                setCurrentSessionId(sessionId);
+                    title: trimTitle(generateSmartTitle(targetMode, targetInput)),
+                    inputText: targetInput,
+                });
+                activeSessionId = session.id;
+                setCurrentSessionId(session.id);
                 setInput("");
 
                 setStatusText("Running market and competitor scan");
@@ -318,7 +537,14 @@ export default function DashboardPage() {
                 });
 
                 const final = await readStreamingResponse(competitorRes);
-                patchSession(sessionId, {
+                patchSession(session.id, {
+                    data: {
+                        output: typeof final === "string" ? safeJsonParse(final) : final,
+                        outputText: typeof final === "string" ? final : undefined,
+                    },
+                    error: undefined,
+                });
+                await patchSessionRemote(session.id, {
                     data: {
                         output: typeof final === "string" ? safeJsonParse(final) : final,
                         outputText: typeof final === "string" ? final : undefined,
@@ -333,6 +559,9 @@ export default function DashboardPage() {
             setError(message);
             if (activeSessionId) {
                 patchSession(activeSessionId, { error: message });
+                await patchSessionRemote(activeSessionId, { error: message }).catch(() => {
+                    // no-op
+                });
             }
         } finally {
             clearInterval(progressInterval);
@@ -344,65 +573,103 @@ export default function DashboardPage() {
 
     return (
         <div className="h-screen flex lp-shell text-[#17130c] overflow-hidden font-sans">
-            <aside className={`border-r border-[#e8dfcf] bg-[#f4ebd9]/90 backdrop-blur flex flex-col transition-all duration-300 ${sidebarOpen ? "w-72" : "w-0 opacity-0 -translate-x-full"}`}>
+            {/* Sidebar with improved responsive behavior */}
+            <aside className={`
+                border-r border-[#e8dfcf] bg-[#f4ebd9]/90 backdrop-blur flex flex-col 
+                transition-all duration-300 ease-in-out
+                ${sidebarOpen ? "w-72 pointer-events-auto" : "w-0 pointer-events-none"}
+                fixed lg:relative inset-y-0 left-0 z-30
+                ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+                overflow-hidden
+            `}>
                 <div className="p-4 border-b border-[#e8dfcf] flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2 group">
                         <span className="font-extrabold text-lg tracking-tighter">FORGE</span>
                         <span className="text-[#e86f2d] text-xl">⬡</span>
                     </Link>
-                    <button onClick={() => setSidebarOpen(false)} className="text-[#6b5b3f] hover:text-[#17130c] p-1" aria-label="Collapse sidebar">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
+                    <button 
+                        onClick={() => setSidebarOpen(false)} 
+                        className="text-[#6b5b3f] hover:text-[#17130c] p-1 transition-colors" 
+                        aria-label="Collapse sidebar"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                        </svg>
                     </button>
                 </div>
 
                 <div className="p-3">
                     <button
-                        onClick={() => { setCurrentSessionId(null); setInput(""); setStreamOutput(""); setError(""); }}
-                        className="lp-btn-secondary w-full flex items-center justify-start gap-3 border-dashed px-3 py-2 text-sm"
+                        onClick={() => { 
+                            setCurrentSessionId(null); 
+                            setInput(""); 
+                            setStreamOutput(""); 
+                            setError(""); 
+                            setSidebarOpen(false); // Auto-close on mobile
+                        }}
+                        className="lp-btn-secondary w-full flex items-center justify-start gap-3 border-dashed px-3 py-2 text-sm hover:bg-[#fff5e1] transition-colors"
                     >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
                         New Forge Session
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-1">
+                <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-4 space-y-1">
                     <div className="px-3 py-2">
                         <SectionLabel>Recent Operations</SectionLabel>
                     </div>
                     {sessions.length === 0 ? (
                         <div className="px-3 py-8 text-center space-y-2">
                             <div className="text-[#9c8e74] text-2xl">📁</div>
-                            <p className="text-[#8a7a5d] text-[0.7rem] font-mono uppercase tracking-widest">No history recorded</p>
+                            <p className="text-[#8a7a5d] text-[0.7rem] font-mono uppercase tracking-widest">
+                                {sessionsLoaded ? "No history recorded" : "Loading sessions"}
+                            </p>
                         </div>
                     ) : (
                         sessions.map((s) => (
                             <div
                                 key={s.id}
                                 className={`w-full p-1 rounded-lg transition-all border ${
-                                    currentSessionId === s.id ? "bg-[#fff5e2] border-[#eec681]" : "hover:bg-[#f8efde] border-transparent"
+                                    currentSessionId === s.id 
+                                        ? "bg-[#fff5e2] border-[#eec681]" 
+                                        : "hover:bg-[#f8efde] border-transparent"
                                 }`}
                             >
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => {
                                             setCurrentSessionId(s.id);
+                                            setMode(s.mode);
                                             setError(s.error || "");
                                             setStreamOutput("");
+                                            setSidebarOpen(false);
                                         }}
-                                        className="flex-1 text-left p-2 rounded-md flex items-center gap-3"
+                                        className="flex-1 text-left p-2 rounded-md flex items-center gap-3 min-w-0"
                                     >
-                                        <span className="text-[0.8rem] opacity-50">{s.mode === "paper" ? "📄" : s.mode === "constellation" ? "✨" : "💼"}</span>
+                                        <span className="text-[0.8rem] opacity-50 shrink-0">
+                                            {s.mode === "paper" ? "📄" : s.mode === "constellation" ? "✨" : "💼"}
+                                        </span>
                                         <div className="flex-1 min-w-0">
-                                            <div className={`text-[0.75rem] font-medium truncate ${currentSessionId === s.id ? "text-[#b2541f]" : "text-[#17130c]"}`}>{s.title}</div>
-                                            <div className="text-[0.6rem] text-[#8a7a5d] font-mono uppercase">{new Date(s.timestamp).toLocaleDateString()}</div>
+                                            <div className={`text-[0.75rem] font-medium truncate ${
+                                                currentSessionId === s.id ? "text-[#b2541f]" : "text-[#17130c]"
+                                            }`}>
+                                                {s.title}
+                                            </div>
+                                            <div className="text-[0.6rem] text-[#8a7a5d] font-mono uppercase">
+                                                {new Date(s.timestamp).toLocaleDateString()}
+                                            </div>
                                         </div>
                                     </button>
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            deleteSession(s.id);
+                                            void deleteSession(s.id).catch((err: unknown) => {
+                                                setError(err instanceof Error ? err.message : "Failed to delete session.");
+                                            });
                                         }}
-                                        className="shrink-0 h-8 w-8 rounded-md text-[#8a7a5d] hover:text-[#17130c] hover:bg-[#efe4d0]"
+                                        className="shrink-0 h-8 w-8 rounded-md text-[#8a7a5d] hover:text-[#17130c] hover:bg-[#efe4d0] transition-colors"
                                         aria-label="Delete session"
                                         title="Delete session"
                                     >
@@ -416,114 +683,185 @@ export default function DashboardPage() {
 
                 <div className="p-4 border-t border-[#e8dfcf] bg-[#f0e6d2]">
                     <div className="flex items-center gap-3">
-                        <Avatar name={user?.name || "O"} role={user?.role || "builder"} size={28} />
+                        <Avatar
+                            name={user?.fullName || user?.primaryEmailAddress?.emailAddress || "User"}
+                            role="researcher"
+                            size={28}
+                        />
                         <div className="min-w-0">
-                            <div className="text-[0.75rem] font-bold truncate">{user?.name}</div>
-                            <RoleBadge role={user?.role || "builder"} />
+                            <div className="text-[0.75rem] font-bold truncate">
+                                {user?.fullName || "FORGE Operator"}
+                            </div>
+                            <div className="text-[0.62rem] text-[#8a7a5d] truncate">
+                                {user?.primaryEmailAddress?.emailAddress}
+                            </div>
                         </div>
                     </div>
                 </div>
             </aside>
 
+            {/* Overlay for mobile sidebar */}
+            {sidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/20 backdrop-blur-sm z-20 lg:hidden"
+                    onClick={() => setSidebarOpen(false)}
+                    aria-hidden="true"
+                />
+            )}
+
             <main className="flex-1 flex flex-col relative overflow-hidden">
                 <div className="absolute inset-0 bg-grid opacity-[0.08] pointer-events-none" />
 
-                <header className="h-14 border-b border-[#e8dfcf] flex items-center justify-between px-6 bg-[#f7f3ea]/90 backdrop-blur z-10">
-                    <div className="flex items-center gap-4">
+                {/* Header with improved responsive layout */}
+                <header className="h-14 border-b border-[#e8dfcf] flex items-center justify-between px-4 lg:px-6 bg-[#f7f3ea]/90 backdrop-blur z-10">
+                    <div className="flex items-center gap-3 lg:gap-4 min-w-0">
                         {!sidebarOpen && (
-                            <button onClick={() => setSidebarOpen(true)} className="text-[#6b5b3f] hover:text-[#17130c] p-1" aria-label="Expand sidebar">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                            <button 
+                                onClick={() => setSidebarOpen(true)} 
+                                className="text-[#6b5b3f] hover:text-[#17130c] p-1 transition-colors" 
+                                aria-label="Expand sidebar"
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
                             </button>
                         )}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                             <select
                                 value={selectedModel}
                                 onChange={(e) => setSelectedModel(e.target.value)}
-                                className="bg-transparent text-[0.7rem] font-mono text-[#6b5b3f] hover:text-[#17130c] cursor-pointer border-none outline-none appearance-none uppercase tracking-widest"
+                                className="bg-transparent text-[0.65rem] lg:text-[0.7rem] font-mono text-[#6b5b3f] hover:text-[#17130c] cursor-pointer border-none outline-none appearance-none uppercase tracking-widest"
                             >
                                 {AVAILABLE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                             </select>
-                            <span className="text-[#8a7a5d]">/</span>
-                            <span className="text-[0.65rem] font-mono text-[#8a7a5d] uppercase tracking-widest">{mode} MODE</span>
+                            <span className="text-[#8a7a5d] hidden sm:inline">/</span>
+                            <span className="text-[0.6rem] lg:text-[0.65rem] font-mono text-[#8a7a5d] uppercase tracking-widest hidden sm:inline">
+                                {mode} MODE
+                            </span>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button className="lp-btn-secondary h-8 px-3 text-[0.65rem]" onClick={() => setCurrentSessionId(null)}>
-                            New Session
-                        </button>
+                        {currentSession ? (
+                            <button className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap">
+                                <span className="hidden sm:inline">Share Blueprint</span>
+                                <span className="sm:hidden">Share</span>
+                            </button>
+                        ) : (
+                            <button
+                                className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap"
+                                onClick={() => setCurrentSessionId(null)}
+                            >
+                                <span className="hidden sm:inline">New Session</span>
+                                <span className="sm:hidden">New</span>
+                            </button>
+                        )}
+                        <UserButton afterSignOutUrl="/" />
                     </div>
                 </header>
 
-                <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 relative">
+                <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 lg:p-6 relative">
                     {currentSession ? (
-                        <div className="max-w-4xl mx-auto space-y-8 pb-32">
+                        <div className="max-w-4xl mx-auto space-y-6 lg:space-y-8 pb-32">
                             <div className="flex flex-col gap-2">
-                                <div className="text-[#b2541f] text-sm font-mono uppercase tracking-[0.2em] mb-2 animate-in">Session Active</div>
-                                <h1 className="text-3xl font-extrabold tracking-tighter animate-in" style={{ animationDelay: "0.1s" }}>
+                                <div className="text-[#b2541f] text-xs lg:text-sm font-mono uppercase tracking-[0.2em] mb-2 animate-in">
+                                    Session Active
+                                </div>
+                                <h1 className="text-2xl lg:text-3xl font-extrabold tracking-tighter animate-in" style={{ animationDelay: "0.1s" }}>
                                     {currentSession.title}
                                 </h1>
-                                <div className="flex gap-2 animate-in" style={{ animationDelay: "0.15s" }}>
+                                <div className="flex flex-wrap gap-2 animate-in" style={{ animationDelay: "0.15s" }}>
                                     <Tag text={currentSession.mode.toUpperCase()} color="#b2541f" />
                                     {currentSession.arxivId ? <Tag text={`arXiv:${currentSession.arxivId}`} color="#2f8b6b" /> : null}
                                 </div>
                             </div>
 
                             {analyzing ? (
-                                <div className="lp-card p-12 flex flex-col items-center justify-center text-center space-y-4">
+                                <div className="lp-card p-8 lg:p-12 flex flex-col items-center justify-center text-center space-y-4">
                                     <Spinner size={32} />
                                     <div className="space-y-1">
-                                        <p className="text-sm font-mono text-[#b2541f] animate-pulse uppercase tracking-widest">{statusText || "Running Analysis..."}</p>
-                                        <p className="text-xs text-[#6b5b3f] font-light">Streaming from Agno backend at localhost:8321</p>
+                                        <p className="text-xs lg:text-sm font-mono text-[#b2541f] animate-pulse uppercase tracking-widest">
+                                            {statusText || "Running Analysis..."}
+                                        </p>
+                                        <p className="text-[0.65rem] lg:text-xs text-[#6b5b3f] font-light">
+                                            Streaming from Agno backend at localhost:8321
+                                        </p>
                                     </div>
                                     <div className="w-full max-w-xs h-1 bg-[#e7dac2] rounded-full overflow-hidden mt-4">
-                                        <div className="h-full bg-[#e86f2d] transition-all duration-300" style={{ width: `${progress}%` }} />
+                                        <div 
+                                            className="h-full bg-[#e86f2d] transition-all duration-300" 
+                                            style={{ width: `${progress}%` }} 
+                                        />
                                     </div>
                                 </div>
                             ) : !currentSession.data ? (
-                                <div className="lp-card p-8 border-dashed flex flex-col items-center justify-center text-center space-y-4">
+                                <div className="lp-card p-6 lg:p-8 border-dashed flex flex-col items-center justify-center text-center space-y-4">
                                     <div className="text-[#8a7a5d] text-3xl">📡</div>
                                     <div className="space-y-1">
-                                        <h3 className="text-sm font-bold uppercase tracking-widest">Awaiting Command</h3>
-                                        <p className="text-xs text-[#8a7a5d]">Click Initialize Forge below to run this session.</p>
+                                        <h3 className="text-xs lg:text-sm font-bold uppercase tracking-widest">Awaiting Command</h3>
+                                        <p className="text-[0.65rem] lg:text-xs text-[#8a7a5d]">
+                                            Click Initialize Forge below to run this session.
+                                        </p>
                                     </div>
-                                    <button onClick={() => handleAnalyze(currentSession.arxivId, currentSession.mode, input || currentSession.title)} className="lp-btn-primary px-4 py-2">Initialize Forge</button>
+                                    <button 
+                                        onClick={() =>
+                                            handleAnalyze(
+                                                currentSession.arxivId,
+                                                currentSession.mode,
+                                                currentSession.inputText || input || currentSession.title,
+                                            )
+                                        }
+                                        className="lp-btn-primary px-4 py-2 text-sm"
+                                    >
+                                        Initialize Forge
+                                    </button>
                                 </div>
                             ) : (
                                 <div className="space-y-4 animate-in">
-                                    <div className="lp-card p-6">
-                                        <SectionLabel>Backend Output</SectionLabel>
-                                        <pre className="text-[#3f3525] text-xs leading-relaxed whitespace-pre-wrap break-words overflow-x-auto">
-                                            {formatOutput(currentSession.data.output)}
-                                        </pre>
+                                    <div className="lp-card p-4 lg:p-6">
+                                        <SectionLabel>Analysis Output</SectionLabel>
+                                        <div className="space-y-3">
+                                            {getReadableSections(currentSession.data.output).map((section) => (
+                                                <div key={section.title} className="rounded-lg border border-[#eadfc9] bg-[#fff8eb] p-3">
+                                                    <p className="text-[0.62rem] lg:text-[0.68rem] font-mono uppercase tracking-widest text-[#8a7a5d]">
+                                                        {section.title}
+                                                    </p>
+                                                    <p className="mt-1 text-[#3f3525] text-[0.72rem] lg:text-[0.8rem] leading-relaxed whitespace-pre-wrap break-words">
+                                                        {section.body}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             )}
 
                             {streamOutput ? (
-                                <div className="lp-card p-5">
+                                <div className="lp-card p-4 lg:p-5">
                                     <SectionLabel>Live Stream</SectionLabel>
-                                    <pre className="text-[#5b4e37] text-xs leading-relaxed whitespace-pre-wrap break-words max-h-56 overflow-auto">{streamOutput}</pre>
+                                    <pre className="text-[#5b4e37] text-[0.7rem] lg:text-xs leading-relaxed whitespace-pre-wrap break-words max-h-56 overflow-auto">
+                                        {streamOutput}
+                                    </pre>
                                 </div>
                             ) : null}
 
                             {(error || currentSession.error) ? (
-                                <div className="rounded-xl border border-[#d9a9a9] bg-[#f7e8e8] text-[#8d2f2f] p-4 text-sm">
+                                <div className="rounded-xl border border-[#d9a9a9] bg-[#f7e8e8] text-[#8d2f2f] p-3 lg:p-4 text-xs lg:text-sm">
                                     {error || currentSession.error}
                                 </div>
                             ) : null}
                         </div>
                     ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-center px-6">
-                            <div className="text-[#e86f2d] text-5xl mb-8 font-mono">⬡</div>
-                            <h2 className="text-4xl font-extrabold tracking-tighter mb-4 max-w-md">
+                        <div className="h-full flex flex-col items-center justify-center text-center px-4 lg:px-6">
+                            <div className="text-[#e86f2d] text-4xl lg:text-5xl mb-6 lg:mb-8 font-mono">⬡</div>
+                            <h2 className="text-2xl lg:text-4xl font-extrabold tracking-tighter mb-3 lg:mb-4 max-w-md">
                                 What should we <span className="text-[#e86f2d] font-mono italic">forge</span> today?
                             </h2>
-                            <p className="text-[#5b4e37] text-sm max-w-sm mb-12 font-light">
+                            <p className="text-[#5b4e37] text-xs lg:text-sm max-w-sm mb-8 lg:mb-12 font-light">
                                 Ingest an arXiv paper or describe a product and run the Agno backend from this dashboard.
                             </p>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 lg:gap-4 w-full max-w-2xl">
                                 {[
                                     { t: "Extract SaaS Moats", d: "2409.13449", m: "paper" as AppMode },
                                     { t: "SaaS R&D Boost", d: "A B2B CRM for biotech", m: "saas" as AppMode },
@@ -532,11 +870,15 @@ export default function DashboardPage() {
                                     <button
                                         key={i}
                                         onClick={() => { setMode(ex.m); setInput(ex.d); }}
-                                        className="lp-card p-4 text-left hover:border-[#eec681] transition-all group"
+                                        className="lp-card p-3 lg:p-4 text-left hover:border-[#eec681] transition-all group"
                                     >
-                                        <div className="text-xs font-mono text-[#b2541f] uppercase mb-1 tracking-widest">{ex.m}</div>
-                                        <div className="text-xs font-bold mb-1">{ex.t}</div>
-                                        <div className="text-[0.65rem] text-[#8a7a5d] font-mono">&quot;{ex.d}&quot;</div>
+                                        <div className="text-[0.65rem] lg:text-xs font-mono text-[#b2541f] uppercase mb-1 tracking-widest">
+                                            {ex.m}
+                                        </div>
+                                        <div className="text-xs lg:text-xs font-bold mb-1">{ex.t}</div>
+                                        <div className="text-[0.6rem] lg:text-[0.65rem] text-[#8a7a5d] font-mono line-clamp-2">
+                                            &quot;{ex.d}&quot;
+                                        </div>
                                     </button>
                                 ))}
                             </div>
@@ -544,18 +886,26 @@ export default function DashboardPage() {
                     )}
                 </div>
 
-                <div className="p-6 bg-gradient-to-t from-[#f3ead8] via-[#f6efe1]/95 to-transparent border-t border-[#e8dfcf] relative z-10">
-                    <div className="max-w-4xl mx-auto space-y-4">
+                {/* Input area with improved responsive design */}
+                <div className="p-4 lg:p-6 bg-gradient-to-t from-[#f3ead8] via-[#f6efe1]/95 to-transparent border-t border-[#e8dfcf] relative z-10">
+                    <div className="max-w-4xl mx-auto space-y-3 lg:space-y-4">
                         <div className="flex justify-center gap-1.5 mb-2">
                             {(["paper", "constellation", "saas"] as AppMode[]).map((m) => (
                                 <button
                                     key={m}
                                     onClick={() => setMode(m)}
-                                    className={`px-3 py-1 rounded-full text-[0.6rem] font-mono uppercase tracking-[0.2em] transition-all border ${
-                                        mode === m ? "bg-[#e86f2d] text-[#fff8eb] border-[#e86f2d] font-bold" : "bg-[#fdf8ed] text-[#6b5b3f] border-[#e5d9c3] hover:text-[#17130c]"
+                                    className={`px-2 lg:px-3 py-1 rounded-full text-[0.55rem] lg:text-[0.6rem] font-mono uppercase tracking-[0.2em] transition-all border ${
+                                        mode === m 
+                                            ? "bg-[#e86f2d] text-[#fff8eb] border-[#e86f2d] font-bold" 
+                                            : "bg-[#fdf8ed] text-[#6b5b3f] border-[#e5d9c3] hover:text-[#17130c]"
                                     }`}
                                 >
-                                    {m === "constellation" ? "✨ Constell" : m === "paper" ? "📄 Ingest" : "💼 SaaS"}
+                                    <span className="hidden sm:inline">
+                                        {m === "constellation" ? "✨ Constell" : m === "paper" ? "📄 Ingest" : "💼 SaaS"}
+                                    </span>
+                                    <span className="sm:hidden">
+                                        {m === "constellation" ? "✨" : m === "paper" ? "📄" : "💼"}
+                                    </span>
                                 </button>
                             ))}
                         </div>
@@ -564,10 +914,16 @@ export default function DashboardPage() {
                             <div className="flex flex-col gap-2">
                                 {detectedArxivId && (
                                     <div className="px-3 pt-2">
-                                        <span className="inline-flex items-center gap-2 bg-[#fdf0df] border border-[#f0cb94] rounded px-2 py-1 text-[0.65rem] font-mono text-[#b2541f] animate-in">
+                                        <span className="inline-flex items-center gap-2 bg-[#fdf0df] border border-[#f0cb94] rounded px-2 py-1 text-[0.6rem] lg:text-[0.65rem] font-mono text-[#b2541f] animate-in">
                                             <span className="w-1.5 h-1.5 rounded-full bg-[#e86f2d] animate-pulse" />
-                                            TARGET ARXIV:{detectedArxivId}
-                                            <button onClick={() => setInput(input.replace(detectedArxivId, ""))} className="hover:text-[#17130c] ml-1 text-xs">×</button>
+                                            <span className="hidden sm:inline">TARGET ARXIV:</span>
+                                            {detectedArxivId}
+                                            <button 
+                                                onClick={() => setInput(input.replace(detectedArxivId, ""))} 
+                                                className="hover:text-[#17130c] ml-1 text-xs"
+                                            >
+                                                ×
+                                            </button>
                                         </span>
                                     </div>
                                 )}
@@ -595,8 +951,11 @@ export default function DashboardPage() {
                                         onClick={() => handleAnalyze()}
                                         disabled={!input.trim() || analyzing}
                                         className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-                                            input.trim() ? "bg-[#e86f2d] text-[#fff9eb] scale-100" : "bg-[#efe3cc] text-[#8a7a5d] scale-90"
+                                            input.trim() 
+                                                ? "bg-[#e86f2d] text-[#fff9eb] scale-100 hover:scale-105" 
+                                                : "bg-[#efe3cc] text-[#8a7a5d] scale-90"
                                         }`}
+                                        aria-label="Submit"
                                     >
                                         {analyzing ? (
                                             <Spinner size={16} color="#17130c" />
@@ -610,11 +969,12 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
-                        <div className="flex justify-center gap-6">
-                            <p className="text-[0.55rem] font-mono text-[#8a7a5d] uppercase tracking-[0.3em]">
-                                ENTER TO FORGE
+                        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-6">
+                            <p className="text-[0.5rem] lg:text-[0.55rem] font-mono text-[#8a7a5d] uppercase tracking-[0.3em] text-center">
+                                <span className="hidden sm:inline">ENTER TO FORGE</span>
+                                <span className="sm:hidden">↵ TO FORGE</span>
                             </p>
-                            <p className="text-[0.55rem] font-mono text-[#8a7a5d] uppercase tracking-[0.3em]">
+                            <p className="text-[0.5rem] lg:text-[0.55rem] font-mono text-[#8a7a5d] uppercase tracking-[0.3em] text-center">
                                 AGNO BACKEND :8321
                             </p>
                         </div>

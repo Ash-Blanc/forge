@@ -20,39 +20,78 @@ Prioritize papers that have an verifiable arXiv ID.
 
 CRITICAL: You must output ONLY raw JSON. Do not include introductory text like 'Here are the papers...'. Start your response with { and end with }.`;
 
+    const message = String(prompt ?? "").trim();
+    if (!message) {
+        return new Response(JSON.stringify({ error: "message is required" }), { status: 400 });
+    }
+
+    const form = new URLSearchParams();
+    form.set("message", message);
+    form.set("stream", "true");
+    form.set("session_state", JSON.stringify(body ?? {}));
+
     try {
-        const agnoRes = await fetch(`${AGNO_BASE_URL}/agents/market-strategist/runs`, {
+        let agnoRes = await fetch(`${AGNO_BASE_URL}/agents/market-strategist/runs`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                message: prompt,
-                stream: true,
-                session_state: body
-            })
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "text/event-stream" },
+            body: form.toString(),
         });
 
+        if (agnoRes.status === 422) {
+            agnoRes = await fetch(`${AGNO_BASE_URL}/agents/market-strategist/runs`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "text/event-stream" },
+                body: new URLSearchParams({ message, stream: "true" }).toString(),
+            });
+        }
+
         if (!agnoRes.ok) {
-            return new Response(JSON.stringify({ error: "Agno AgentOS failed" }), { status: 500 });
+            const detail = await agnoRes.text().catch(() => "");
+            return new Response(JSON.stringify({ error: `Agno AgentOS failed (${agnoRes.status})`, detail }), { status: 500 });
         }
 
         let accumulatedText = "";
+        let sseBuffer = "";
+        const decoder = new TextDecoder();
         const transformer = new TransformStream({
             transform(chunk, controller) {
-                const text = new TextDecoder().decode(chunk);
-                const lines = text.split("\n");
+                sseBuffer += decoder.decode(chunk, { stream: true });
+                const lines = sseBuffer.split("\n");
+                sseBuffer = lines.pop() ?? "";
+
                 for (const line of lines) {
                     if (line.startsWith("data: ")) {
                         try {
                             const data = JSON.parse(line.slice(6));
-                            if (data.event === "run_step_delta" && data.content) {
-                                accumulatedText += data.content;
+                            const eventName = String(data.event ?? "");
+                            const contentValue = data.content;
+                            const contentText = typeof contentValue === "string"
+                                ? contentValue
+                                : contentValue != null
+                                  ? JSON.stringify(contentValue)
+                                  : "";
+
+                            if (
+                                eventName === "RunContent"
+                                || eventName === "RunIntermediateContent"
+                                || eventName === "ReasoningContentDelta"
+                                || eventName === "run_step_delta"
+                            ) {
+                                if (contentText) accumulatedText += contentText;
                                 controller.enqueue(`data: ${JSON.stringify({ type: "delta", text: accumulatedText })}\n\n`);
-                            } else if (data.event === "run_output") {
+                            } else if (eventName === "RunError") {
+                                controller.enqueue(`data: ${JSON.stringify({ type: "error", message: contentText || "Agent run failed" })}\n\n`);
+                            } else if (
+                                eventName === "RunCompleted"
+                                || eventName === "RunContentCompleted"
+                                || eventName === "run_output"
+                            ) {
                                 try {
-                                    const parsed = JSON.parse(data.content);
+                                    const finalText = contentText || accumulatedText || "null";
+                                    const parsed = JSON.parse(finalText);
                                     controller.enqueue(`data: ${JSON.stringify({ type: "done", analysis: parsed })}\n\n`);
                                 } catch {
-                                    controller.enqueue(`data: ${JSON.stringify({ type: "done", text: data.content })}\n\n`);
+                                    controller.enqueue(`data: ${JSON.stringify({ type: "done", text: contentText || accumulatedText || "null" })}\n\n`);
                                 }
                             }
                         } catch (e) {

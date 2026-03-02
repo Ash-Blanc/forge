@@ -1,28 +1,26 @@
-// lib/supabase.ts
-// Server-only client — uses service role key, never exposed to browser.
-// Import this only in app/api/** route handlers.
-
 import { createClient } from "@supabase/supabase-js";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const fallbackAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const key = serviceRoleKey || fallbackAnonKey;
 
 if (!url || !key) {
     throw new Error(
-        "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY — check .env.local"
+        "Missing Supabase credentials. Expected NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or anon fallback)."
     );
 }
 
-// Single shared instance (safe: server components are stateless)
 export const db = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
 });
 
 // ─── Types mirroring Supabase rows ────────────────────────────
 export type DBUser = {
-    id: string;
+    id: string; // legacy app user id; for Clerk use clerk_user_id when available
+    clerk_user_id: string | null;
     name: string;
-    role: string;
+    role: string | null;
     bio: string | null;
     created_at: string;
 };
@@ -47,4 +45,19 @@ export type DBPaper = {
     narrative_analysis: string | null;
     submitted_by_id: string;
     created_at: string;
+};
+
+export type DBAnalysisSession = {
+    id: string;
+    user_id: string;
+    mode: "paper" | "saas" | "constellation";
+    title: string;
+    input_text: string | null;
+    arxiv_id: string | null;
+    meta: Record<string, unknown> | null;
+    output: Record<string, unknown> | string | null;
+    output_text: string | null;
+    error: string | null;
+    created_at: string;
+    updated_at: string;
 };

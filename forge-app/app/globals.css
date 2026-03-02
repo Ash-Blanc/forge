@@ -117,12 +117,23 @@
         border-radius: var(--r-md);
         transition: all 0.2s;
         cursor: pointer;
+        min-height: 44px; /* Better touch target */
+        border: none;
     }
 
-    .btn-primary:hover {
+    .btn-primary:hover:not(:disabled) {
         opacity: 0.9;
         transform: translateY(-1px);
         box-shadow: 0 4px 20px rgba(232, 111, 45, 0.25);
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-primary:active:not(:disabled) {
+        transform: translateY(0);
     }
 
     .btn-ghost {
@@ -138,11 +149,17 @@
         border-radius: var(--r-md);
         transition: all 0.2s;
         cursor: pointer;
+        min-height: 44px; /* Better touch target */
     }
 
-    .btn-ghost:hover {
+    .btn-ghost:hover:not(:disabled) {
         background: rgba(23, 19, 12, 0.03);
         border-color: var(--border-h);
+    }
+
+    .btn-ghost:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
 
     .card {
@@ -185,6 +202,25 @@
     .scroll-y {
         overflow-y: auto;
         scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    }
+
+    /* Better scrollbar styling */
+    .scroll-y::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .scroll-y::-webkit-scrollbar-track {
+        background: var(--bg);
+    }
+
+    .scroll-y::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px;
+    }
+
+    .scroll-y::-webkit-scrollbar-thumb:hover {
+        background: var(--border-h);
     }
 
     .bg-grid-blueprint {
@@ -240,6 +276,35 @@
 
     .animate-pulse-glow {
         animation: pulse-glow 1.8s ease-in-out infinite;
+    }
+
+    /* Mobile-specific improvements */
+    @media (max-width: 640px) {
+        .card-modern:hover {
+            transform: none; /* Disable hover transform on mobile */
+        }
+
+        .btn-primary:hover:not(:disabled),
+        .btn-ghost:hover:not(:disabled) {
+            transform: none; /* Disable hover transform on mobile */
+        }
+    }
+
+    /* Focus visible for accessibility */
+    *:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
+
+    button:focus-visible,
+    a:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
+
+    /* Improve tap highlight on mobile */
+    * {
+        -webkit-tap-highlight-color: rgba(232, 111, 45, 0.1);
     }
 }
 
