@@ -18,19 +18,27 @@ Abstract: ${(body.abstract || "").slice(0, 5000)}
 
 Return ONLY valid JSON.`;
 
+    const form = new URLSearchParams();
+    form.set("message", prompt);
+    form.set("stream", "true");
+
     try {
-        const agnoRes = await fetch(`${AGNO_BASE_URL}/agents/forge-analyst/runs`, {
+        let agnoRes = await fetch(`${AGNO_BASE_URL}/agents/forge-analyst/runs`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                message: prompt,
-                stream: true,
-                session_state: body
-            })
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "text/event-stream" },
+            body: form.toString(),
         });
 
+        if (agnoRes.status === 422) {
+            agnoRes = await fetch(`${AGNO_BASE_URL}/agents/forge-analyst/runs`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "text/event-stream" },
+                body: new URLSearchParams({ message: prompt, stream: "true" }).toString(),
+            });
+        }
+
         if (!agnoRes.ok) {
-            return new Response(JSON.stringify({ error: "Agno AgentOS failed" }), { status: 500 });
+            return new Response(JSON.stringify({ error: `Agno AgentOS failed (${agnoRes.status})` }), { status: 500 });
         }
 
         let accumulatedText = "";
@@ -43,14 +51,21 @@ Return ONLY valid JSON.`;
                         try {
                             const data = JSON.parse(line.slice(6));
                             if (data.event === "run_step_delta" && data.content) {
+                                console.log("Got run_step_delta:", data.content.substring(0, 100));
                                 accumulatedText += data.content;
                                 controller.enqueue(`data: ${JSON.stringify({ type: "delta", text: accumulatedText })}\n\n`);
+                            } else if (data.event) {
+                                console.log("Got other event:", data.event);
                             } else if (data.event === "run_output") {
                                 try {
-                                    const parsed = JSON.parse(data.content);
+                                    let content = data.content || "";
+                                    content = content.replace(/<thinking[\s\S]*?>/g, "").replace(/<\/thinking>/g, "");
+                                    const parsed = JSON.parse(content);
                                     controller.enqueue(`data: ${JSON.stringify({ type: "done", analysis: parsed })}\n\n`);
                                 } catch {
-                                    controller.enqueue(`data: ${JSON.stringify({ type: "done", text: data.content })}\n\n`);
+                                    let content = data.content || "";
+                                    content = content.replace(/<thinking[\s\S]*?>/g, "").replace(/<\/thinking>/g, "");
+                                    controller.enqueue(`data: ${JSON.stringify({ type: "done", text: content })}\n\n`);
                                 }
                             }
                         } catch (e) {
