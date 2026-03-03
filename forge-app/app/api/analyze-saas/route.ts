@@ -77,8 +77,16 @@ CRITICAL: You must output ONLY raw JSON. Do not include introductory text like '
                                 || eventName === "ReasoningContentDelta"
                                 || eventName === "run_step_delta"
                             ) {
-                                if (contentText) accumulatedText += contentText;
-                                controller.enqueue(`data: ${JSON.stringify({ type: "delta", text: accumulatedText })}\n\n`);
+                                if (contentText) {
+                                    if (contentText.startsWith("<thinking")) continue;
+                                    let cleanText = contentText
+                                        .replace(/<thinking[\s\S]*?>/g, "")
+                                        .replace(/<\/thinking>/g, "")
+                                        .replace(/^>\s*/, "");
+                                    if (!cleanText.trim()) continue;
+                                    accumulatedText += cleanText;
+                                    controller.enqueue(`data: ${JSON.stringify({ type: "delta", text: accumulatedText })}\n\n`);
+                                }
                             } else if (eventName === "RunError") {
                                 controller.enqueue(`data: ${JSON.stringify({ type: "error", message: contentText || "Agent run failed" })}\n\n`);
                             } else if (
@@ -87,11 +95,14 @@ CRITICAL: You must output ONLY raw JSON. Do not include introductory text like '
                                 || eventName === "run_output"
                             ) {
                                 try {
-                                    const finalText = contentText || accumulatedText || "null";
+                                    let finalText = contentText || accumulatedText || "null";
+                                    finalText = finalText.replace(/<thinking>[\s\S]*?<\/thinking>/g, "").trim();
                                     const parsed = JSON.parse(finalText);
                                     controller.enqueue(`data: ${JSON.stringify({ type: "done", analysis: parsed })}\n\n`);
                                 } catch {
-                                    controller.enqueue(`data: ${JSON.stringify({ type: "done", text: contentText || accumulatedText || "null" })}\n\n`);
+                                    let fallbackText = contentText || accumulatedText || "null";
+                                    fallbackText = fallbackText.replace(/<thinking>[\s\S]*?<\/thinking>/g, "").trim();
+                                    controller.enqueue(`data: ${JSON.stringify({ type: "done", text: fallbackText })}\n\n`);
                                 }
                             }
                         } catch (e) {
