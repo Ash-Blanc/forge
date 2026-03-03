@@ -51,11 +51,8 @@ Return ONLY valid JSON.`;
                         try {
                             const data = JSON.parse(line.slice(6));
                             if (data.event === "run_step_delta" && data.content) {
-                                console.log("Got run_step_delta:", data.content.substring(0, 100));
                                 accumulatedText += data.content;
                                 controller.enqueue(`data: ${JSON.stringify({ type: "delta", text: accumulatedText })}\n\n`);
-                            } else if (data.event) {
-                                console.log("Got other event:", data.event);
                             } else if (data.event === "run_output") {
                                 try {
                                     let content = data.content || "";

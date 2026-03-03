@@ -11,19 +11,27 @@ export async function POST(req: NextRequest) {
         return new Response(JSON.stringify({ error: "ideaContext required" }), { status: 400 });
     }
 
+    const form = new URLSearchParams();
+    form.set("message", body.ideaContext);
+    form.set("stream", "true");
+
     try {
-        const agnoRes = await fetch(`${AGNO_BASE_URL}/agents/market-strategist/runs`, {
+        let agnoRes = await fetch(`${AGNO_BASE_URL}/agents/market-strategist/runs`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                message: body.ideaContext,
-                stream: true,
-                session_state: body
-            })
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "text/event-stream" },
+            body: form.toString(),
         });
 
+        if (agnoRes.status === 422) {
+            agnoRes = await fetch(`${AGNO_BASE_URL}/agents/market-strategist/runs`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "text/event-stream" },
+                body: new URLSearchParams({ message: body.ideaContext, stream: "true" }).toString(),
+            });
+        }
+
         if (!agnoRes.ok) {
-            return new Response(JSON.stringify({ error: "Agno AgentOS failed" }), { status: 500 });
+            return new Response(JSON.stringify({ error: `Agno AgentOS failed (${agnoRes.status})` }), { status: 500 });
         }
 
         let accumulatedText = "";
