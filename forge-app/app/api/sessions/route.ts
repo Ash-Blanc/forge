@@ -15,7 +15,14 @@ export async function GET() {
         .order("updated_at", { ascending: false })
         .limit(250);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+        console.error("Supabase error (GET /api/sessions):", error);
+        let msg = error.message;
+        if (msg.includes("cache")) {
+            msg = "The 'analysis_sessions' table is missing from your database. Please run the migration found in 'supabase/migrations/'.";
+        }
+        return NextResponse.json({ error: msg }, { status: 500 });
+    }
     return NextResponse.json(data ?? []);
 }
 
@@ -52,6 +59,13 @@ export async function POST(req: NextRequest) {
         .select("*")
         .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+        console.error("Supabase error (POST /api/sessions):", error);
+        let msg = error.message;
+        if (msg.includes("cache")) {
+            msg = "The 'analysis_sessions' table is missing from your database. Please run the migration found in 'supabase/migrations/'.";
+        }
+        return NextResponse.json({ error: msg }, { status: 500 });
+    }
     return NextResponse.json(data, { status: 201 });
 }

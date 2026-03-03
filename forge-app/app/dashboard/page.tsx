@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { Avatar, Spinner, Tag, SectionLabel } from "@/components/ui";
+
+const PaperCanvas = dynamic(() => import("@/components/PaperCanvas").then((m) => m.PaperCanvas), { ssr: false });
 
 type AppMode = "paper" | "saas" | "constellation";
 
@@ -185,6 +188,7 @@ export default function DashboardPage() {
     const [streamOutput, setStreamOutput] = useState("");
     const [error, setError] = useState("");
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [viewMode, setViewMode] = useState<"text" | "canvas">("text");
 
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -819,19 +823,49 @@ export default function DashboardPage() {
                             ) : (
                                 <div className="space-y-4 animate-in">
                                     <div className="lp-card p-4 lg:p-6">
-                                        <SectionLabel>Analysis Output</SectionLabel>
-                                        <div className="space-y-3">
-                                            {getReadableSections(currentSession.data.output).map((section) => (
-                                                <div key={section.title} className="rounded-lg border border-[#eadfc9] bg-[#fff8eb] p-3">
-                                                    <p className="text-[0.62rem] lg:text-[0.68rem] font-mono uppercase tracking-widest text-[#8a7a5d]">
-                                                        {section.title}
-                                                    </p>
-                                                    <p className="mt-1 text-[#3f3525] text-[0.72rem] lg:text-[0.8rem] leading-relaxed whitespace-pre-wrap break-words">
-                                                        {section.body}
-                                                    </p>
-                                                </div>
-                                            ))}
+                                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3 sm:gap-0">
+                                            <SectionLabel>Analysis Output</SectionLabel>
+                                            <div className="flex gap-1 bg-[#fff8eb] p-1 rounded-lg border border-[#eadfc9] w-fit">
+                                                <button
+                                                    onClick={() => setViewMode("text")}
+                                                    className={`px-3 py-1.5 text-[0.65rem] lg:text-xs font-medium rounded-md transition-colors ${
+                                                        viewMode === "text"
+                                                            ? "bg-[#eadfc9] text-[#3f3525] shadow-sm"
+                                                            : "text-[#8a7a5d] hover:bg-[#eadfc9]/50"
+                                                    }`}
+                                                >
+                                                    Text
+                                                </button>
+                                                <button
+                                                    onClick={() => setViewMode("canvas")}
+                                                    className={`px-3 py-1.5 text-[0.65rem] lg:text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                                                        viewMode === "canvas"
+                                                            ? "bg-[#eadfc9] text-[#3f3525] shadow-sm"
+                                                            : "text-[#8a7a5d] hover:bg-[#eadfc9]/50"
+                                                    }`}
+                                                >
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                                    Canvas
+                                                </button>
+                                            </div>
                                         </div>
+                                        
+                                        {viewMode === "text" ? (
+                                            <div className="space-y-3">
+                                                {getReadableSections(currentSession.data.output).map((section) => (
+                                                    <div key={section.title} className="rounded-lg border border-[#eadfc9] bg-[#fff8eb] p-3">
+                                                        <p className="text-[0.62rem] lg:text-[0.68rem] font-mono uppercase tracking-widest text-[#8a7a5d]">
+                                                            {section.title}
+                                                        </p>
+                                                        <p className="mt-1 text-[#3f3525] text-[0.72rem] lg:text-[0.8rem] leading-relaxed whitespace-pre-wrap break-words">
+                                                            {section.body}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <PaperCanvas data={currentSession.data.output} />
+                                        )}
                                     </div>
                                 </div>
                             )}

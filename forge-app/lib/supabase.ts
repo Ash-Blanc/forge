@@ -11,6 +11,13 @@ if (!url || !key) {
     );
 }
 
+// Check for common misconfigurations
+if (key.startsWith("sb_publishable_")) {
+    console.warn("⚠️ SUPABASE_KEY starts with 'sb_publishable_'. This looks like a Stripe key, not a Supabase key. Expected a JWT (ey...).");
+} else if (!key.startsWith("ey")) {
+    console.warn("⚠️ SUPABASE_KEY does not start with 'ey'. Supabase keys are typically JWTs.");
+}
+
 export const db = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
 });
