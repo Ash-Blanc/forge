@@ -8,10 +8,7 @@ import { Avatar, Spinner, Tag, SectionLabel } from "@/components/ui";
 import { AnalysisReport } from "@/components/AnalysisReport";
 import { parseStreamedJson } from "@/lib/parseStreamedJson";
 
-const PaperCanvas = dynamic(
-    () => import("@/components/PaperCanvas").then((m) => m.PaperCanvas),
-    { ssr: false },
-);
+
 
 type AppMode = "paper" | "saas" | "constellation";
 
@@ -247,7 +244,6 @@ export default function DashboardPage() {
     const [streamOutput, setStreamOutput] = useState("");
     const [error, setError] = useState("");
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [viewMode, setViewMode] = useState<"text" | "canvas">("text");
     const [copied, setCopied] = useState(false);
 
     const handleShare = async () => {
@@ -278,18 +274,18 @@ export default function DashboardPage() {
     const handleExport = (format: "json" | "md") => {
         if (!currentSession) return;
         const { id, title, timestamp, mode, arxivId, data, error } = currentSession;
-        
+
         const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
         const date = new Date(timestamp).toISOString().split('T')[0];
         const filename = `forge_${mode}_${safeTitle}_${date}.${format}`;
-        
+
         let content = "";
-        
+
         if (format === "json") {
             const payload = {
-                id, title, timestamp, mode, arxivId, 
-                data: data?.output || null, 
-                error: error || null 
+                id, title, timestamp, mode, arxivId,
+                data: data?.output || null,
+                error: error || null
             };
             content = JSON.stringify(payload, null, 2);
         } else {
@@ -298,7 +294,7 @@ export default function DashboardPage() {
             content += `- **Mode:** ${mode}\n`;
             if (arxivId) content += `- **arXiv ID:** ${arxivId}\n`;
             content += `\n---\n\n`;
-            
+
             if (error) {
                 content += `## Error\n\n${error}\n\n`;
             } else if (data?.output) {
@@ -321,7 +317,7 @@ export default function DashboardPage() {
                 content += `*No data available.*\n`;
             }
         }
-        
+
         const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/markdown' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1224,88 +1220,31 @@ export default function DashboardPage() {
                                             <SectionLabel>
                                                 Analysis Output
                                             </SectionLabel>
-                                            <div className="flex gap-1 bg-[#fff8eb] p-1 rounded-lg border border-[#eadfc9] w-fit">
-                                                <button
-                                                    onClick={() =>
-                                                        setViewMode("text")
-                                                    }
-                                                    className={`px-3 py-1.5 text-[0.65rem] lg:text-xs font-medium rounded-md transition-colors ${viewMode === "text"
-                                                        ? "bg-[#eadfc9] text-[#3f3525] shadow-sm"
-                                                        : "text-[#8a7a5d] hover:bg-[#eadfc9]/50"
-                                                        }`}
-                                                >
-                                                    Text
-                                                </button>
-                                                <button
-                                                    onClick={() =>
-                                                        setViewMode("canvas")
-                                                    }
-                                                    className={`px-3 py-1.5 text-[0.65rem] lg:text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${viewMode === "canvas"
-                                                        ? "bg-[#eadfc9] text-[#3f3525] shadow-sm"
-                                                        : "text-[#8a7a5d] hover:bg-[#eadfc9]/50"
-                                                        }`}
-                                                >
-                                                    <svg
-                                                        width="12"
-                                                        height="12"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        strokeWidth="2"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                    >
-                                                        <rect
-                                                            width="18"
-                                                            height="18"
-                                                            x="3"
-                                                            y="3"
-                                                            rx="2"
-                                                            ry="2"
-                                                        />
-                                                        <circle
-                                                            cx="8.5"
-                                                            cy="8.5"
-                                                            r="1.5"
-                                                        />
-                                                        <path d="M21 15l-5-5L5 21" />
-                                                    </svg>
-                                                    Canvas
-                                                </button>
-                                            </div>
                                         </div>
 
-                                        {viewMode === "text" ? (
-                                            <div className="mt-4">
-                                                {currentSession.mode === "paper" ? (
-                                                    <AnalysisReport data={currentSession.data.output as any} />
-                                                ) : (
-                                                    <div className="space-y-3">
-                                                        {getReadableSections(
-                                                            currentSession.data.output,
-                                                        ).map((section) => (
-                                                            <div
-                                                                key={section.title}
-                                                                className="rounded-lg border border-[#eadfc9] bg-[#fff8eb] p-3"
-                                                            >
-                                                                <p className="text-[0.62rem] lg:text-[0.68rem] font-mono uppercase tracking-widest text-[#8a7a5d]">
-                                                                    {section.title}
-                                                                </p>
-                                                                <p className="mt-1 text-[#3f3525] text-[0.72rem] lg:text-[0.8rem] leading-relaxed whitespace-pre-wrap break-words">
-                                                                    {section.body}
-                                                                </p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <PaperCanvas
-                                                data={
-                                                    currentSession.data.output
-                                                }
-                                            />
-                                        )}
+                                        <div className="mt-4">
+                                            {currentSession.mode === "paper" ? (
+                                                <AnalysisReport data={currentSession.data.output as any} />
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {getReadableSections(
+                                                        currentSession.data.output,
+                                                    ).map((section) => (
+                                                        <div
+                                                            key={section.title}
+                                                            className="rounded-lg border border-[#eadfc9] bg-[#fff8eb] p-3"
+                                                        >
+                                                            <p className="text-[0.62rem] lg:text-[0.68rem] font-mono uppercase tracking-widest text-[#8a7a5d]">
+                                                                {section.title}
+                                                            </p>
+                                                            <p className="mt-1 text-[#3f3525] text-[0.72rem] lg:text-[0.8rem] leading-relaxed whitespace-pre-wrap break-words">
+                                                                {section.body}
+                                                            </p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}
