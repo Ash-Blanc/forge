@@ -8,30 +8,23 @@ from agno.vectordb.pgvector import PgVector
 
 def get_knowledge_base():
     """Initializes and returns the Knowledge Base connected to Supabase PgVector."""
-    # Build complete Postgres connect string out of standard Supabase variables
     db_url = os.environ.get("SUPABASE_DB_URL")
     
     if not db_url:
         print("Warning: SUPABASE_DB_URL not configured. Embeddings will not be saved.")
         return None
 
-    # CRITICAL: Prevent Boto3 from hanging on IMDS metadata timeouts if these are explicitly empty
-    os.environ.pop("AWS_ACCESS_KEY_ID", None)
-    os.environ.pop("AWS_SECRET_ACCESS_KEY", None)
-
-    # We use Amazon Nova Multimodal Embeddings (amazon.nova-multimodal-embed-v1:0)
-    # Note: AWS Bedrock requires AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+    # Use a dedicated boto3 session with the region from env,
+    # without destructively modifying global AWS credential env vars.
     import boto3
     boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
     embedder = AwsBedrockEmbedder(
         id="amazon.nova-multimodal-embed-v1:0",
-        session=boto_session
-        # Default dimensions for multimodal-embed is typically 1024 or 384 depending on config,
-        # but Agno relies on the vector data type created by pgvector inside Supabase.
+        session=boto_session,
     )
 
     vector_db = PgVector(
-        table_name="user_knowledge", # This triggers Agno to create user_knowledge table
+        table_name="user_knowledge",
         db_url=db_url,
         embedder=embedder,
     )
@@ -66,24 +59,41 @@ def index_paper_session(user_id: str, paper_arxiv_id: str, paper_title: str, abs
         }
     )
 
-    # Document 2: The Agent Analysis / Startup Idea
+    # Document 2: The Agent Analysis
     analysis_content = f"SaaS Strategy derived from {paper_title}:\n\n"
+    
+    # Handle paperAnalysis format from the analyst
+    paper_analysis = agent_analysis_dict.get("paperAnalysis", {})
+    if paper_analysis:
+        analysis_content += f"Core Breakthrough: {paper_analysis.get('coreBreakthrough', 'N/A')}\n"
+        analysis_content += f"Summary: {paper_analysis.get('summary', 'N/A')}\n"
+        innovations = paper_analysis.get('keyInnovations', [])
+        if innovations:
+            analysis_content += f"Key Innovations: {', '.join(innovations)}\n"
+
+    # Handle opportunities format from the architect
+    opportunities = agent_analysis_dict.get("opportunities", [])
+    if isinstance(opportunities, list):
+        for opp in opportunities[:5]:
+            if isinstance(opp, dict):
+                analysis_content += f"\nOpportunity: {opp.get('name', 'N/A')}\n"
+                analysis_content += f"  Type: {opp.get('type', 'N/A')}\n"
+                analysis_content += f"  Value: {opp.get('coreValue', opp.get('oneLiner', 'N/A'))}\n"
+
+    # Handle strategy format from the strategist
+    strategy = agent_analysis_dict.get("strategy", {})
+    if strategy:
+        analysis_content += f"\nMVP Scope: {strategy.get('mvpScope', 'N/A')}\n"
+        analysis_content += f"Unfair Advantage: {strategy.get('unfairAdvantage', 'N/A')}\n"
+        analysis_content += f"GTM Path: {strategy.get('gtmPath', 'N/A')}\n"
+
+    # Handle legacy startupIdea format
     if "startupIdea" in agent_analysis_dict:
         idea = agent_analysis_dict["startupIdea"]
         analysis_content += f"Name: {idea.get('startupName', 'N/A')}\n"
         analysis_content += f"Pitch: {idea.get('oneLiner', 'N/A')}\n"
         if "targetUser" in idea:
             analysis_content += f"User Persona: {idea['targetUser'].get('persona', 'N/A')}\n"
-            analysis_content += f"Pain Point: {idea['targetUser'].get('painPoint', 'N/A')}\n"
-        
-        if "product" in idea:
-            analysis_content += f"Core Feature: {idea['product'].get('coreFeature', 'N/A')}\n"
-
-    # Add SWOT if available
-    if "swot" in agent_analysis_dict:
-        swot = agent_analysis_dict["swot"]
-        analysis_content += f"\nStrengths: {', '.join(swot.get('strengths', []))}"
-        analysis_content += f"\nOpportunities: {', '.join(swot.get('opportunities', []))}"
 
     kb.insert(
         text_content=analysis_content,

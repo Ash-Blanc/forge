@@ -2,40 +2,39 @@
 
 ## Project Structure & Module Organization
 - `forge-app/`: Next.js 16 frontend (App Router, React 19, TypeScript, Tailwind v4).
-- `forge-app/app/api/*/route.ts`: API proxy routes that forward requests to the agent backend.
-- `forge-app/agents/`: FastAPI + Agno orchestration (`server.py`, `workflow.py`).
-- `mcp-server/`: MCP tooling and integrations.
-- `docs/`: architecture notes, evals, migration docs.
-- `ai-chats/`: research/chat context artifacts.
-- `test_obsidian/`: local MCP testing sandbox.
+- `forge-app/app/api/*/route.ts`: API proxy routes forwarding requests to the agent backend.
+- `forge-app/agents/`: FastAPI + Agno orchestration (`server.py`, `workflow.py`, smoke tests).
+- `mcp-server/`: MCP tooling and integration code.
+- `docs/`: architecture notes, migrations, and evaluation docs.
+- `ai-chats/`: research/chat artifacts. `test_obsidian/`: local MCP sandbox.
 
 ## Build, Test, and Development Commands
 - Frontend setup: `cd forge-app && bun install`
-- Frontend dev server: `bun run dev` (default `http://localhost:3000`)
-- Frontend quality checks: `bun run lint` and `bun run build`
+- Frontend dev: `bun run dev` (serves on `http://localhost:3000`)
+- Frontend checks: `bun run lint` and `bun run build`
 - Seed app data: `bun run seed`
-- Agent service setup: `cd forge-app/agents && uv sync`
-- Agent service run: `uv run uvicorn server:app --port 8321 --reload`
-- End-to-end smoke test: `uv run python test_revamp.py`
+- Agent setup: `cd forge-app/agents && uv sync`
+- Agent run: `uv run uvicorn server:app --port 8321 --reload`
+- Smoke test: `uv run python test_revamp.py`
 
 ## Coding Style & Naming Conventions
-- TypeScript is strict; prefer explicit types and small, focused components.
-- Imports: use `@/` aliases for app-level modules (example: `@/lib/supabase`).
-- Naming: components `PascalCase.tsx`, hooks `useX`, utility files `kebab-case.ts`.
-- Python: PEP 8, type hints, Pydantic models for I/O validation.
-- Styling: Tailwind utilities; keep inline styles for dynamic values only.
+- TypeScript is strict; prefer explicit types and small focused components.
+- Use `@/` import aliases for app modules (example: `@/lib/supabase`).
+- Naming: components `PascalCase.tsx`, hooks `useX`, utilities `kebab-case.ts`.
+- Python: PEP 8, type hints, and Pydantic models for request/response validation.
+- Styling: Tailwind utilities first; inline styles only for truly dynamic values.
 
 ## Testing Guidelines
-- Frontend has lint/build gates instead of a full test suite; run both before PRs.
-- Backend validation relies on smoke flow tests in `forge-app/agents/test_revamp.py`.
-- When adding features, include targeted tests near changed code when practical.
+- Frontend quality gate is `lint` + `build`; run both before opening a PR.
+- Backend validation uses `forge-app/agents/test_revamp.py` smoke flows.
+- Add focused tests near changed code when practical, especially for workflow and API logic.
 
 ## Commit & Pull Request Guidelines
-- Use Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`.
-- Keep commits focused and atomic; avoid unrelated refactors.
-- PRs should include: concise summary, linked issue (if any), verification steps (`lint`, `build`, smoke), and screenshots for UI changes.
+- Follow Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`.
+- Keep commits atomic and avoid unrelated cleanup.
+- PRs should include: clear summary, linked issue (if any), verification steps run, and screenshots for UI changes.
 
 ## Security & Configuration Tips
-- Configure `forge-app/.env.local` for AWS Bedrock and Supabase.
-- Use Supabase service role key (JWT starting with `ey...`) for server-side operations.
-- Do not commit secrets; verify `.env*` values locally before running migrations/seeding.
+- Configure secrets in `forge-app/.env.local` (AWS Bedrock, Supabase).
+- Use a Supabase service role key for server-side operations.
+- Never commit secrets; verify `.env*` values locally before seeding or migrations.

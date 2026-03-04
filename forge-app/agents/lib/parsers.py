@@ -1,6 +1,7 @@
 import json
 import re
 
+
 def parse_agent_json(raw_text: str) -> dict | None:
     """Parse JSON from agent response with multiple fallback strategies.
 
@@ -9,6 +10,9 @@ def parse_agent_json(raw_text: str) -> dict | None:
     3. Attempt to load it
     Returns parsed dict or None on failure.
     """
+    if not raw_text or not raw_text.strip():
+        return None
+
     # Strategy 1: strip markdown fences
     clean = re.sub(r"```json\s*", "", raw_text, flags=re.IGNORECASE)
     clean = re.sub(r"```\s*", "", clean).strip()
@@ -31,18 +35,22 @@ def parse_agent_json(raw_text: str) -> dict | None:
     try:
         return json.loads(repaired)
     except json.JSONDecodeError:
+        pass
+
+    # Strategy 5: try removing control characters
+    sanitized = re.sub(r"[\x00-\x1f\x7f]", " ", repaired)
+    try:
+        return json.loads(sanitized)
+    except json.JSONDecodeError:
         return None
+
 
 def _is_nonempty_string(value) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
-def _has_valid_opportunity_types(opportunities) -> bool:
-    if not isinstance(opportunities, list):
-        return False
-    types = {item.get("type") for item in opportunities if isinstance(item, dict)}
-    return {"platform", "feature", "api_plugin"}.issubset(types)
 
-def is_valid_analysis_output(data: dict | None) -> bool:
+def is_valid_analyst_output(data: dict | None) -> bool:
+    """Validate output from the Forge Analyst agent."""
     if not isinstance(data, dict):
         return False
 
@@ -53,16 +61,47 @@ def is_valid_analysis_output(data: dict | None) -> bool:
         return False
     if not _is_nonempty_string(paper.get("researchProblem")):
         return False
-    if not _is_nonempty_string(paper.get("methodInPlainEnglish")):
-        return False
     if not _is_nonempty_string(paper.get("coreBreakthrough")):
         return False
 
-    if not _has_valid_opportunity_types(data.get("opportunities")):
+    return True
+
+
+def is_valid_architect_output(data: dict | None) -> bool:
+    """Validate output from the Product Architect agent."""
+    if not isinstance(data, dict):
         return False
 
-    rec = data.get("recommendedPath")
-    if rec not in {"platform", "feature", "api_plugin"}:
+    opportunities = data.get("opportunities")
+    if not isinstance(opportunities, list) or len(opportunities) == 0:
+        return False
+
+    # Check that at least the first opportunity has required fields
+    first = opportunities[0]
+    if not isinstance(first, dict):
+        return False
+    if not _is_nonempty_string(first.get("name")):
+        return False
+    if not _is_nonempty_string(first.get("oneLiner")):
+        return False
+
+    if not _is_nonempty_string(data.get("recommendedPath")):
+        return False
+
+    return True
+
+
+def is_valid_strategist_output(data: dict | None) -> bool:
+    """Validate output from the Market Strategist agent."""
+    if not isinstance(data, dict):
+        return False
+
+    strategy = data.get("strategy")
+    if not isinstance(strategy, dict):
+        return False
+    if not _is_nonempty_string(strategy.get("mvpScope")):
+        return False
+    if not _is_nonempty_string(strategy.get("unfairAdvantage")):
         return False
 
     return True

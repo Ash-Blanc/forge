@@ -1,16 +1,17 @@
 import os
-from agno.os import AgentOS
 from dotenv import load_dotenv
 
+# Load environment variables BEFORE importing local modules that initialize
+# AWS clients (boto3 reads AWS_REGION at import/init time).
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env.local'))
+
+from agno.os import AgentOS
 from core import (
     forge_analyst,
     product_architect,
     market_strategist,
 )
 from workflow import forge_flow_instance
-
-# Load environment variables
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env.local'))
 
 # Prevent malformed empty credential vars from poisoning boto3 resolution,
 # while preserving valid env-based credentials.
