@@ -2,16 +2,16 @@
 
 Modular Agno-powered backend for research paper analysis and SaaS commercialization strategy.
 
-## 🚀 Overview
+##  Overview
 
 This backend uses a 3-agent orchestration flow to transform academic research into actionable business plans.
 
-### 🤖 The 3-Agent Flow (`ForgeFlow`)
+###  The 3-Agent Flow (`ForgeFlow`)
 1.  **Forge Analyst**: Extracts the "Core Breakthrough" and technical essence from an arXiv paper.
 2.  **Product Architect**: Brainstorms 3-5 distinct SaaS startup or feature directions from the breakthrough.
 3.  **Market Strategist**: Refines the best idea with competitor research, MVP scope, and GTM strategy.
 
-## 📁 Directory Structure
+##  Directory Structure
 
 ```text
 agents/
@@ -32,7 +32,7 @@ agents/
 └── knowledge.py        # Vector Database (Supabase PgVector) integration
 ```
 
-## 🛠️ Setup & Running
+##  Setup & Running
 
 ### Prerequisites
 - Python 3.10+
@@ -56,14 +56,14 @@ uv run python server.py
 ```
 The server will start on `http://localhost:8321`.
 
-## 🧪 Testing
+##  Testing
 
 Run an end-to-end flow test for a specific paper:
 ```bash
 uv run python test_revamp.py
 ```
 
-## 📜 Development Guidelines
+##  Development Guidelines
 
 - **JSON Only**: All agents are configured to output raw JSON for seamless frontend integration.
 - **Traceability**: Every recommendation must be linked back to the "Core Breakthrough" extracted by the Analyst.

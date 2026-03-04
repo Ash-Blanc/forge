@@ -15,7 +15,7 @@ Oh damn, **TimeBill** - this is actually fire for AI agents! The paper introduce
 
 Let me break down the banger use cases and how to make this work efficiently:
 
-## 🔥 Killer Use Cases for AI Agents
+##  Killer Use Cases for AI Agents
 
 **Real-Time Decision Making**
 - Autonomous vehicles needing to make snap decisions (merge, brake, navigate) where you literally cannot wait for 50 tokens of reasoning
@@ -38,7 +38,7 @@ Let me break down the banger use cases and how to make this work efficiently:
 - Industrial control systems with hard real-time constraints
 - Emergency response systems where "best answer in 2 seconds" beats "perfect answer in 20 seconds"
 
-## 💡 Making It Work at Inference Time
+##  Making It Work at Inference Time
 
 The key insight from TimeBill is the **response length predictor (RLP) + execution time estimator (ETE)** combo. Here's how to implement this efficiently:
 
@@ -141,7 +141,7 @@ Track these metrics:
 
 The real magic is the **feedback loop**: every inference gives you ground truth data to improve your RLP/ETE models. After 10k+ queries, your predictions become scary accurate.
 
-## 🚀 Next-Level Stuff
+##  Next-Level Stuff
 
 **Multi-Model Routing**
 Train a meta-model that decides: "For this query, should I use fast-but-dumb model A, slow-but-smart model B, or ensemble?" based on time budget and predicted difficulty.

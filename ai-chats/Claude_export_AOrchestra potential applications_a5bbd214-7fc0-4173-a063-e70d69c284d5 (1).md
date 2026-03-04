@@ -733,7 +733,7 @@ class OrchestraMCPServer:
                 "type": "api_key_request",
                 "tool": tool_name,
                 "message": f"""
-                🔑 API Key Needed: {tool_name}
+                 API Key Needed: {tool_name}
                 
                 The sub-agent needs access to {tool_name} to complete this task.
                 
@@ -955,7 +955,7 @@ Create a GitHub action that posts to Slack when PRs are merged
 ```
 Main Agent: "I need to integrate with GitHub..."
 
-Orchestra MCP: 🔑 API Key Needed: GITHUB
+Orchestra MCP:  API Key Needed: GITHUB
 
 The sub-agent needs access to GITHUB to complete this task.
 

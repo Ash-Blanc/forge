@@ -17,7 +17,7 @@ if (!url || !key) {
 }
 
 if (!secretKey && publishableKey) {
-    console.warn("⚠️ Using publishable key for server-side Supabase client. For write operations that bypass RLS, set SUPABASE_SECRET_KEY (sb_secret_...).");
+    console.warn(" Using publishable key for server-side Supabase client. For write operations that bypass RLS, set SUPABASE_SECRET_KEY (sb_secret_...).");
 }
 
 export const db = createClient(url, key, {

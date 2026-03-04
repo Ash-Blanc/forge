@@ -4,7 +4,7 @@ Welcome! This guide will help you get started with contributing to FORGE. We fol
 
 ---
 
-## 🚀 Our Philosophy: Prototype-First
+##  Our Philosophy: Prototype-First
 
 We build fast and iterate. Based on our Core Approach:
 
@@ -156,12 +156,12 @@ git push origin your-branch-name
 ### TypeScript
 
 ```typescript
-// ✅ Good - explicit types
+//  Good - explicit types
 function calculateNOVA(tam: number, complexity: number): number {
   return tam * (1 / complexity);
 }
 
-// ❌ Bad - any type
+//  Bad - any type
 function calculateNOVA(tam: any, complexity: any): any {
   return tam * (1 / complexity);
 }
@@ -170,7 +170,7 @@ function calculateNOVA(tam: any, complexity: any): any {
 ### React Components
 
 ```tsx
-// ✅ Good - clear naming, explicit props
+//  Good - clear naming, explicit props
 interface PaperCardProps {
   title: string;
   authors: string[];
@@ -193,10 +193,10 @@ export function PaperCard({ title, authors, novaScore, onClaim }: PaperCardProps
 ### Tailwind CSS v4
 
 ```tsx
-// ✅ Good - modern utility tokens
+//  Good - modern utility tokens
 <div className="bg-surface text-text-primary border-border"></div>
 
-// ❌ Bad - hardcoded old palettes
+//  Bad - hardcoded old palettes
 <div className="bg-gray-900 text-white border-gray-700"></div>
 ```
 
