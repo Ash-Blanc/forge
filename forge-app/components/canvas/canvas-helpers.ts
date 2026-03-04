@@ -2,7 +2,7 @@ import type { ForgePaper } from "@/lib/types";
 import { TLShape, createShapeId } from "tldraw";
 
 // Color palette matching FORGE design system
-const COLORS = {
+const COLORS: Record<string, { fill: string; stroke: string; text: string }> = {
   paper: {
     fill: "var(--color-accent-dim)",
     stroke: "var(--color-accent)",
@@ -24,8 +24,14 @@ const COLORS = {
     text: "var(--color-sage)",
   },
   connection: {
+    fill: "var(--color-muted)",
     stroke: "var(--color-muted)",
     text: "var(--color-faint)",
+  },
+  general: {
+    fill: "var(--color-elevated)",
+    stroke: "var(--color-border)",
+    text: "var(--color-text)",
   },
 };
 
