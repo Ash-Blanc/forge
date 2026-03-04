@@ -20,3 +20,19 @@ export interface ForgeAnalysis {
     first90Days: string[];
     narrativeAnalysis: string;
 }
+
+export interface ForgePaper {
+    id: string;
+    title: string;
+    arxivId?: string;
+    status: string;
+    tags?: string[];
+    opportunity?: string;
+    coreInnovation?: string;
+    targetCustomer?: string;
+    marketSize?: string;
+    moatAnalysis?: string;
+    first90Days?: string[];
+    followers: any[];
+    comments: any[];
+}

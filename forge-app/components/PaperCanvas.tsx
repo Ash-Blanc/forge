@@ -70,7 +70,7 @@ export function PaperCanvas({ data }: PaperCanvasProps) {
             });
 
             let itemY = yOffset + 150;
-            let itemX = xOffset;
+            const itemX = xOffset;
 
             // Handle Key-Value Pairs or Arrays
             if (Array.isArray(sectionData)) {
