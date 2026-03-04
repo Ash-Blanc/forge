@@ -7,7 +7,7 @@ FORGE turns research papers into execution-ready SaaS blueprints.
 1. **Ingest input**: arXiv ID/URL or product idea
 2. **Run analysis**: Agno-backed FastAPI agents process the request
 3. **Review output**: Dashboard shows streamed analysis and saved session history
-4. **Manage sessions**: Create, revisit, and delete analysis sessions
+4. **Manage sessions**: Create, revisit, and delete `analysis_sessions` entries
 
 Note: legacy collaboration/feed workflows are removed from the current product scope.
 

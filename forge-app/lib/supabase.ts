@@ -22,38 +22,6 @@ export const db = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
 });
 
-// ─── Types mirroring Supabase rows ────────────────────────────
-export type DBUser = {
-    id: string; // legacy app user id; for Clerk use clerk_user_id when available
-    clerk_user_id: string | null;
-    name: string;
-    role: string | null;
-    bio: string | null;
-    created_at: string;
-};
-
-export type DBPaper = {
-    id: string;
-    arxiv_id: string;
-    title: string;
-    abstract: string;
-    authors: string[];
-    published: string;
-    status: string;
-    opportunity: string | null;
-    core_innovation: string | null;
-    target_customer: string | null;
-    market_size: string | null;
-    build_complexity: string | null;
-    mvp_days: number | null;
-    moat_analysis: string | null;
-    tags: string[];
-    first_90_days: string[];
-    narrative_analysis: string | null;
-    submitted_by_id: string;
-    created_at: string;
-};
-
 export type DBAnalysisSession = {
     id: string;
     user_id: string;

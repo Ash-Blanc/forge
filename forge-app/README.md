@@ -6,7 +6,7 @@ Next.js frontend and FastAPI agent backend for research-to-SaaS analysis.
 
 - Accepts arXiv IDs/URLs or product prompts
 - Streams analysis from Agno agents via API routes
-- Stores local dashboard sessions and supports session deletion
+- Persists per-user dashboard sessions in Supabase `analysis_sessions`
 - Supports paper mode, SaaS mode, and constellation mode
 
 Deprecated/removed: legacy collaboration/feed workflows.
@@ -44,3 +44,4 @@ Optional:
 
 - The dashboard calls Next API routes, which proxy to the agents service on `localhost:8321`.
 - The model path is AWS Bedrock (OpenAI-compatible API).
+- Active Supabase migration baseline is `supabase/migrations/20260303_complete_schema.sql`.
