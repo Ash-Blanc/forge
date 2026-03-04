@@ -3,8 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 // Fetch from the local Agno Python agent server
 const AGNO_BASE_URL = process.env.AGNO_BASE_URL ?? "http://127.0.0.1:8321";
 
-const AGENT_TIMEOUT_MS = 30_000; // 30 s per agent call
-const MAX_RETRIES = 2;
+const AGENT_TIMEOUT_MS = parseInt(process.env.AGENT_TIMEOUT_MS || "30000", 10);
+const MAX_RETRIES = parseInt(process.env.MAX_PROXY_RETRIES || "2", 10);
 
 // Sleep helper for retry backoff
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -16,6 +16,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 export async function generateAgentOutput(agentId: string, message: string): Promise<string> {
     let lastError: Error | null = null;
+    const startTime = Date.now();
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         const controller = new AbortController();
@@ -33,23 +34,54 @@ export async function generateAgentOutput(agentId: string, message: string): Pro
 
             if (!res.ok) {
                 const detail = await res.text().catch(() => "");
-                throw new Error(`Agno Agent ${agentId} failed (${res.status}): ${detail}`);
+                
+                // If 4xx, do not retry
+                if (res.status >= 400 && res.status < 500) {
+                    console.error(JSON.stringify({
+                        route: `/agents/${agentId}/runs`,
+                        latency: Date.now() - startTime,
+                        status: res.status,
+                        errorClass: "ClientError",
+                        message: detail.slice(0, 200)
+                    }));
+                    throw new Error(`Agno Agent ${agentId} failed (${res.status}): ${detail}`);
+                }
+                
+                throw new Error(`Agno Agent ${agentId} upstream status ${res.status}`);
             }
 
             const data = await res.json();
+            
+            console.log(JSON.stringify({
+                route: `/agents/${agentId}/runs`,
+                latency: Date.now() - startTime,
+                status: res.status,
+                attempt,
+                message: "Upstream connection successful"
+            }));
+            
             return data?.content || "{}";
         } catch (err: any) {
             clearTimeout(timer);
             lastError = err;
 
-            // Don't retry on 4xx (bad request) or last attempt
+            // Stop retrying if we reached MAX_RETRIES
             if (attempt === MAX_RETRIES) break;
-            if (err.message?.includes("(4")) break; // 4xx — not retriable
 
             const backoff = 500 * Math.pow(2, attempt); // 500ms, 1000ms
             await sleep(backoff);
         }
     }
+
+    const latency = Date.now() - startTime;
+    const errorClass = lastError?.name === "AbortError" ? "TimeoutError" : "NetworkError";
+    console.error(JSON.stringify({ 
+        route: `/agents/${agentId}/runs`, 
+        latency, 
+        status: 0, 
+        errorClass, 
+        message: lastError?.message || "Unknown error" 
+    }));
 
     throw lastError ?? new Error(`Agno Agent ${agentId}: unknown error`);
 }
