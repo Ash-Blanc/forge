@@ -931,7 +931,7 @@ export default function DashboardPage() {
 
                 <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-4 space-y-1">
                     <div className="px-3 py-2">
-                        <SectionLabel>Recent Operations</SectionLabel>
+                        <SectionLabel>Recents</SectionLabel>
                     </div>
                     {sessions.length === 0 ? (
                         <div className="px-3 py-8 text-center space-y-2">
