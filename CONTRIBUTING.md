@@ -13,7 +13,7 @@ We build fast and iterate. Based on our Core Approach:
 3. **Internal Dogfooding:** We ship internally and start using our own features immediately.
 4. **Swarm Teams:** Small, cross-functional groups tackle major features quickly.
 5. **Iterate on Real Usage:** Refine based on actual usage, not just ideas.
-6. **Use Our Tools:** We use our own AI products to build FORGE faster.
+6. **Use Our Tools:** We use our own AI products (like FORGE itself) to build FORGE faster.
 
 ---
 
@@ -34,70 +34,60 @@ Our stack is built for speed: **Bun** for frontend/web, and **uv** for Python ag
 ### 1. Fork & Clone
 
 ```bash
-git clone https://github.com/your-username/forge.git
+git clone https://github.com/Ash-Blanc/forge.git
 cd forge
 ```
 
-### 2. Frontend Setup (Next.js)
+### 2. Web Application Setup (`forge-app/`)
 
 ```bash
-cd full-stack-web
+cd forge-app
+
+# Install dependencies
+bun install
 
 # Copy environment template
 cp .env.local.example .env.local
 
-# Edit .env.local with your credentials:
-# - NEXT_PUBLIC_SUPABASE_URL
-# - NEXT_PUBLIC_SUPABASE_ANON_KEY
-# - ANTHROPIC_API_KEY
+# Edit .env.local with at least these variables:
 # - AWS_REGION=us-east-1
+# - AWS_BEARER_TOKEN_BEDROCK=...
+# - NEXT_PUBLIC_SUPABASE_URL=... (Optional, for persistence)
+# - NEXT_PUBLIC_SUPABASE_ANON_KEY=... (Optional, for persistence)
 ```
 
-**Get Supabase keys:**
-1. Go to [supabase.com](https://supabase.com)
-2. Create a new project with PostgreSQL & pgvector
-3. Settings → API → Copy URL and anon key
-
-**Get API keys:**
-1. Anthropic: [console.anthropic.com](https://console.anthropic.com)
-2. AWS Bedrock setup for Nova-lite models
-
-### 3. Install Dependencies & Run
-
-We use **Bun** instead of npm.
-
+**Run Development Server:**
 ```bash
-bun install
-bun run seed  # Seed sample data
-bun run dev   # Starts Next.js dev server with Turbopack
+bun run dev
 ```
-Open http://localhost:3000
+Open [http://localhost:3000](http://localhost:3000)
 
-### 4. Setup Python Agents Service
+### 3. Python Agents Service (`forge-app/agents/`)
 
 We use **uv** for ultra-fast Python package management. The Next.js API expects this server to run on port 8321.
 
 ```bash
-cd full-stack-web/agents
+cd forge-app/agents
 
-# Create virtual environment and activate
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-uv add -r requirements.txt
+# Setup virtual environment and install dependencies
+uv sync
 
 # Run the agent server
 uv run uvicorn server:app --port 8321 --reload
 ```
 
-### 5. Streamlit Prototype (Active Workspace)
+### 4. MCP Server Setup (`mcp-server/`)
 
-For rapid feature development before migration to full-stack:
+For local tool integration (Excalidraw, GitHub, etc.):
+
 ```bash
-cd streamlit-prototype
-uv run streamlit run app.py
+cd mcp-server
+npm install
+npm run build
+npm run dev
 ```
+
+---
 
 ---
 
@@ -127,27 +117,31 @@ git checkout -b fix/bug-description
 ### 3. Test Your Changes
 
 ```bash
-cd full-stack-web
+cd forge-app
 # Lint
 bun run lint
 # Build (catches type errors)
 bun run build
+# Python smoke test
+cd agents && uv run python test_revamp.py
 ```
 
 ### 4. Commit & Push
 
+We follow **Conventional Commits**: `feat:`, `fix:`, `docs:`, `refactor:`, `style:`, `chore:`.
+
 ```bash
 git add .
-git commit -m "Description of your changes"
+git commit -m "feat: description of your changes"
 git push origin your-branch-name
 ```
 
 ### 5. Open a Pull Request
 
-- Describe what you changed and why
-- Link any related issues or WIP references
-- Explain how to test
-- Highlight elements for the next *WIP Wednesday*
+- Describe what you changed and why.
+- Link any related issues or WIP references.
+- Explain how to test (include command output if possible).
+- Highlight elements for the next *WIP Wednesday*.
 
 ---
 
@@ -196,7 +190,7 @@ export function PaperCard({ title, authors, novaScore, onClaim }: PaperCardProps
 //  Good - modern utility tokens
 <div className="bg-surface text-text-primary border-border"></div>
 
-//  Bad - hardcoded old palettes
+//  Bad - hardcoded old palettes or utility classes
 <div className="bg-gray-900 text-white border-gray-700"></div>
 ```
 
@@ -206,18 +200,18 @@ export function PaperCard({ title, authors, novaScore, onClaim }: PaperCardProps
 
 ```text
 forge/
-├── full-stack-web/        # Main Next.js application
-│   ├── app/               # Next.js App Router (React 19)
-│   ├── components/        # React components & UI
-│   ├── lib/               # Utilities (Supabase, types)
-│   ├── supabase/          # DB schema & migrations
-│   └── agents/            # Python FastAPI Agent Service (Agno)
+├── forge-app/              # Next.js app + API routes + agents backend
+│   ├── app/                # Next.js App Router (React 19)
+│   ├── components/         # React components & UI
+│   ├── lib/                # Utilities (Supabase, types)
+│   ├── agents/             # Python FastAPI Agent Service (Agno)
+│   └── supabase/           # DB migrations & schema
 │
-├── streamlit-prototype/   # Fast-iteration playground
-│   ├── app.py             # Streamlit entry point
-│   └── agents.py          # Agno agent configurations
+├── mcp-server/             # MCP server for tool integration
+│   └── src/                # TypeScript server source
 │
-└── docs/                  # Docs and WIP logs
+├── docs/                   # Quality gates and benchmarks
+└── AGENTS.md               # Detailed agent orchestration guide
 ```
 
 ---
@@ -229,5 +223,6 @@ forge/
 - [Tailwind CSS v4](https://tailwindcss.com)
 - [Agno Framework](https://docs.agno.com)
 - [uv Python Manager](https://docs.astral.sh/uv/)
-- [Bun](https://bun.sh)
-- [Anthropic Claude](https://docs.anthropic.com)
+- [Bun Runtime](https://bun.sh)
+- [Conventional Commits](https://www.conventionalcommits.org/)
+- [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
