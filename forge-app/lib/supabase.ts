@@ -24,6 +24,23 @@ export const db = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
 });
 
+/**
+ * Create a Supabase client scoped to the current user's Clerk JWT.
+ * RLS policies on analysis_sessions apply when using this client with the anon key.
+ * Requires: Supabase configured to verify Clerk JWTs; Clerk JWT template "supabase" if using getToken({ template: 'supabase' }).
+ */
+export function createSupabaseForUser(accessToken: string | null): typeof db {
+    if (!url || !publishableKey) {
+        throw new Error("Missing Supabase URL or publishable key. User-scoped client requires NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+    }
+    return createClient(url, publishableKey, {
+        global: {
+            headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        },
+        auth: { persistSession: false, autoRefreshToken: false },
+    });
+}
+
 export type DBAnalysisSession = {
     id: string;
     user_id: string;

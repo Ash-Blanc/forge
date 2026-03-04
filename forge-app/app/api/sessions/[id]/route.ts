@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/supabase";
+import { createSupabaseForUser } from "@/lib/supabase";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const token = (await getToken?.({ template: "supabase" })) ?? (await getToken?.()) ?? null;
+    const db = createSupabaseForUser(token);
 
     const { id } = await params;
     if (!id) return NextResponse.json({ error: "Missing session id" }, { status: 400 });
@@ -43,8 +45,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const { userId } = await auth();
+    const { userId, getToken } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const token = (await getToken?.({ template: "supabase" })) ?? (await getToken?.()) ?? null;
+    const db = createSupabaseForUser(token);
 
     const { id } = await params;
     if (!id) return NextResponse.json({ error: "Missing session id" }, { status: 400 });

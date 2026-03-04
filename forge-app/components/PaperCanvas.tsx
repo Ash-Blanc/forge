@@ -28,7 +28,7 @@ export function PaperCanvas({ data }: PaperCanvasProps) {
                 w: 300,
                 h: 100,
                 geo: "rectangle",
-                text: "Research Analysis",
+                label: "Research Analysis",
                 color: "blue",
                 fill: "solid",
             },
@@ -52,7 +52,7 @@ export function PaperCanvas({ data }: PaperCanvasProps) {
                     w: 250,
                     h: 80,
                     geo: "rectangle",
-                    text: sectionName.toUpperCase(),
+                    label: sectionName.toUpperCase(),
                     color: "orange",
                     fill: "solid",
                     size: "s"
@@ -85,7 +85,7 @@ export function PaperCanvas({ data }: PaperCanvasProps) {
                             w: 220,
                             h: 100,
                             geo: "rectangle",
-                            text: typeof item === "object" ? JSON.stringify(item, null, 2) : String(item),
+                            label: typeof item === "object" ? JSON.stringify(item, null, 2) : String(item),
                             color: "light-blue",
                             size: "s"
                         }
@@ -114,7 +114,7 @@ export function PaperCanvas({ data }: PaperCanvasProps) {
                                 w: 250,
                                 h: 100,
                                 geo: "rectangle",
-                                text: `${key}:
+                                label: `${key}:
 ${Array.isArray(val) ? val.join(", ") : JSON.stringify(val)}`,
                                 color: "light-blue",
                                 size: "s"
@@ -140,7 +140,7 @@ ${Array.isArray(val) ? val.join(", ") : JSON.stringify(val)}`,
                                 w: 250,
                                 h: 100,
                                 geo: "rectangle",
-                                text: `${key}:
+                                label: `${key}:
 ${val}`,
                                 color: "light-green",
                                 size: "s"
