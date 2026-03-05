@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-    --color-bg: #f7f3ea;
-    --color-surface: #fff9ec;
-    --color-elevated: #fff4df;
-    --color-border: #e8dfcf;
-    --color-border-hover: #d8cab2;
+    --color-bg: #030014;
+    --color-surface: rgba(10, 10, 31, 0.4);
+    --color-elevated: rgba(20, 20, 45, 0.6);
+    --color-border: rgba(255, 255, 255, 0.1);
+    --color-border-hover: rgba(255, 255, 255, 0.2);
 
-    --color-text: #17130c;
-    --color-muted: #5b4e37;
-    --color-faint: #8a7a5d;
+    --color-text: #f0f0f5;
+    --color-muted: #a0a0b5;
+    --color-faint: #606075;
 
     --color-accent: #e86f2d;
     --color-accent-dim: rgba(232, 111, 45, 0.12);
@@ -27,6 +27,7 @@
     --color-red: #c43f3f;
     --color-red-dim: rgba(196, 63, 63, 0.1);
 
+    --font-serif: var(--font-serif), ui-serif, Georgia, serif;
     --font-sans: var(--font-sans), system-ui, sans-serif;
     --font-mono: var(--font-mono), monospace;
 
@@ -63,6 +64,7 @@
         --red-dim: var(--color-red-dim);
 
         --font: var(--font-sans);
+        --serif: var(--font-serif);
         --mono: var(--font-mono);
 
         --r-sm: var(--radius-sm);
@@ -123,7 +125,8 @@
         border-radius: var(--r-md);
         transition: all 0.2s;
         cursor: pointer;
-        min-height: 44px; /* Better touch target */
+        min-height: 44px;
+        /* Better touch target */
         border: none;
     }
 
@@ -155,7 +158,8 @@
         border-radius: var(--r-md);
         transition: all 0.2s;
         cursor: pointer;
-        min-height: 44px; /* Better touch target */
+        min-height: 44px;
+        /* Better touch target */
     }
 
     .btn-ghost:hover:not(:disabled) {
@@ -208,7 +212,8 @@
     .scroll-y {
         overflow-y: auto;
         scrollbar-width: thin;
-        -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        -webkit-overflow-scrolling: touch;
+        /* Smooth scrolling on iOS */
     }
 
     /* Better scrollbar styling */
@@ -241,6 +246,7 @@
             opacity: 0;
             transform: translateY(20px);
         }
+
         to {
             opacity: 1;
             transform: translateY(0);
@@ -256,10 +262,14 @@
     }
 
     @keyframes blink {
-        0%, 49% {
+
+        0%,
+        49% {
             opacity: 1;
         }
-        50%, 100% {
+
+        50%,
+        100% {
             opacity: 0.2;
         }
     }
@@ -272,9 +282,11 @@
         0% {
             filter: drop-shadow(0 0 0 rgba(232, 111, 45, 0));
         }
+
         50% {
             filter: drop-shadow(0 0 10px rgba(232, 111, 45, 0.3));
         }
+
         100% {
             filter: drop-shadow(0 0 0 rgba(232, 111, 45, 0));
         }
@@ -287,12 +299,14 @@
     /* Mobile-specific improvements */
     @media (max-width: 640px) {
         .card-modern:hover {
-            transform: none; /* Disable hover transform on mobile */
+            transform: none;
+            /* Disable hover transform on mobile */
         }
 
         .btn-primary:hover:not(:disabled),
         .btn-ghost:hover:not(:disabled) {
-            transform: none; /* Disable hover transform on mobile */
+            transform: none;
+            /* Disable hover transform on mobile */
         }
     }
 
@@ -327,10 +341,52 @@
 
     .lp-shell {
         min-height: 100vh;
-        background:
-            radial-gradient(circle at 16% 2%, rgba(255, 255, 255, 0.78), transparent 34%),
-            linear-gradient(180deg, #f9f5eb 0%, var(--lp-bg) 52%, #f4eee0 100%);
+        background-color: #0b0f19;
+        /* Deep, rich navy core */
+        background-image:
+            radial-gradient(ellipse at 50% 0%, rgba(120, 119, 198, 0.35) 0%, transparent 60%),
+            /* Top center glow */
+            radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.25) 0%, transparent 45%),
+            /* Indigo glow left */
+            radial-gradient(circle at 90% 15%, rgba(168, 85, 247, 0.2) 0%, transparent 45%),
+            /* Purple ethereal right */
+            radial-gradient(circle at 50% 100%, rgba(56, 189, 248, 0.15) 0%, transparent 55%);
+        /* Bottom sky blue base */
         color: var(--lp-text);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .lp-shell::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image:
+            radial-gradient(2px 2px at 20px 30px, #ffffff, rgba(0, 0, 0, 0)),
+            radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.8), rgba(0, 0, 0, 0)),
+            radial-gradient(2px 2px at 50px 160px, rgba(255, 255, 255, 0.6), rgba(0, 0, 0, 0)),
+            radial-gradient(2px 2px at 90px 40px, rgba(255, 255, 255, 0.9), rgba(0, 0, 0, 0)),
+            radial-gradient(2px 2px at 130px 80px, rgba(255, 255, 255, 0.5), rgba(0, 0, 0, 0)),
+            radial-gradient(2px 2px at 160px 120px, rgba(255, 255, 255, 0.7), rgba(0, 0, 0, 0));
+        background-repeat: repeat;
+        background-size: 200px 200px;
+        opacity: 0.3;
+        z-index: 0;
+        pointer-events: none;
+        animation: stars-drift 100s linear infinite;
+    }
+
+    @keyframes stars-drift {
+        0% {
+            transform: translateY(0);
+        }
+
+        100% {
+            transform: translateY(-200px);
+        }
     }
 
     .lp-nav-scrolled {

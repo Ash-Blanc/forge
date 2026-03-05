@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { Geist, Instrument_Serif } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
-const sans = Plus_Jakarta_Sans({
+const geist = Geist({
     variable: "--font-sans",
     subsets: ["latin"],
 });
 
-const jbMono = JetBrains_Mono({
-    variable: "--font-mono",
+const instrumentSerif = Instrument_Serif({
+    weight: "400",
+    variable: "--font-serif",
     subsets: ["latin"],
 });
 
@@ -26,7 +27,7 @@ export default function RootLayout({
     return (
         <html lang="en">
             <body
-                className={`${sans.variable} ${jbMono.variable} antialiased`}
+                className={`${geist.variable} ${instrumentSerif.variable} antialiased font-sans`}
             >
                 <ClerkProvider>{children}</ClerkProvider>
             </body>

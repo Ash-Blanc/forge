@@ -1,0 +1,7 @@
+  origin/HEAD -> origin/main
+  origin/feat/public-arxiv-api
+  origin/feature/export-menu
+  origin/main
+  origin/new-api
+  origin/pipelines
+  origin/schematic-scholar-implimentation
