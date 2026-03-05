@@ -5,6 +5,7 @@ import 'tldraw/tldraw.css';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Spinner } from '@/components/ui';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface Session {
     id: string;
@@ -169,6 +170,7 @@ ${session.title}`,
                     <span className="text-[0.6rem] font-mono text-[#8a7a5d] uppercase tracking-[0.2em]">
                         {sessions.length} NODES DISCOVERED
                     </span>
+                    <ThemeToggle />
                     <Link href="/dashboard" className="lp-btn-secondary h-8 px-4 text-[0.65rem] flex items-center">
                         BACK TO DASHBOARD
                     </Link>

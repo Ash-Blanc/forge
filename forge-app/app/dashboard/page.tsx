@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { UserButton, useUser } from "@clerk/nextjs";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, Spinner, Tag, SectionLabel } from "@/components/ui";
 import { AnalysisReport } from "@/components/AnalysisReport";
 import { parseStreamedJson } from "@/lib/parseStreamedJson";
@@ -1153,6 +1154,7 @@ export default function DashboardPage() {
                                 <span className="sm:hidden">New</span>
                             </button>
                         )}
+                        <ThemeToggle />
                         <UserButton afterSignOutUrl="/" />
                     </div>
                 </header>

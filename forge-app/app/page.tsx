@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const TRUST_BADGES = ["Founders", "Indie Hackers", "Product Engineers", "Research Teams"];
 
@@ -102,6 +103,7 @@ export default function LandingPage() {
                         <span className="text-[#e86f2d] text-lg">⬡</span>
                     </button>
                     <div className="flex items-center gap-3">
+                        <ThemeToggle />
                         {!isSignedIn ? (
                             <button
                                 data-cta-id="nav-sign-in"
@@ -124,7 +126,7 @@ export default function LandingPage() {
 
             <main className="pt-28 pb-20 px-6">
                 <section className="max-w-6xl mx-auto">
-                    <div className="lp-reveal inline-flex items-center gap-2 rounded-full bg-[#fff9eb] border border-[#eadfc9] px-4 py-1 text-xs font-semibold tracking-wide text-[#5f4e33]">
+                    <div className="lp-reveal inline-flex items-center gap-2 rounded-full bg-[var(--lp-card-bg)] border border-[var(--lp-border)] px-4 py-1 text-xs font-semibold tracking-wide">
                         <span className="inline-block w-2 h-2 rounded-full bg-[#4b9a72]" />
                         BUILT FOR TECHNICAL FOUNDERS
                     </div>
@@ -137,7 +139,7 @@ export default function LandingPage() {
                                 <br />
                                 people pay for.
                             </h1>
-                            <p className="mt-6 text-[1.08rem] leading-relaxed max-w-xl text-[#50452f]">
+                            <p className="mt-6 text-[1.08rem] leading-relaxed max-w-xl text-[var(--lp-muted)]">
                                 Forge transforms dense technical research into validated SaaS opportunities, product scopes,
                                 and launch-ready execution plans.
                             </p>
@@ -188,9 +190,9 @@ export default function LandingPage() {
                         </div>
                     </div>
 
-                    <div className="mt-14 border-y border-[#e8dfcf] py-5">
-                        <p className="text-xs uppercase tracking-[0.16em] text-[#7b6947]">Used by teams from</p>
-                        <div className="mt-3 flex flex-wrap items-center gap-x-8 gap-y-3 text-[#3e3424] font-semibold">
+                    <div className="mt-14 border-y border-[var(--lp-border)] py-5">
+                        <p className="text-xs uppercase tracking-[0.16em] text-[var(--lp-muted)]">Used by teams from</p>
+                        <div className="mt-3 flex flex-wrap items-center gap-x-8 gap-y-3 text-[var(--lp-text)] font-semibold">
                             {TRUST_BADGES.map((item) => (
                                 <span key={item}>{item}</span>
                             ))}
@@ -200,7 +202,7 @@ export default function LandingPage() {
 
                 <section id="how-it-works" className="max-w-6xl mx-auto mt-20">
                     <div className="max-w-2xl">
-                        <p className="text-xs font-bold tracking-[0.16em] text-[#7b6947] uppercase">How It Works</p>
+                        <p className="text-xs font-bold tracking-[0.16em] text-[var(--lp-muted)] uppercase">How It Works</p>
                         <h2 className="mt-3 text-3xl md:text-4xl font-black tracking-tight">Designed for speed and conviction.</h2>
                     </div>
                     <div className="mt-8 grid md:grid-cols-3 gap-4">
@@ -215,8 +217,8 @@ export default function LandingPage() {
                 </section>
 
                 <section className="max-w-6xl mx-auto mt-20">
-                    <div className="rounded-3xl border border-[#e4d7be] bg-[#f3ead8] text-[#17130c] px-6 py-10 md:px-10">
-                        <p className="text-xs font-bold tracking-[0.16em] text-[#7b6947] uppercase">Impact</p>
+                    <div className="rounded-3xl border border-[var(--lp-border)] bg-[var(--lp-card-bg)] px-6 py-10 md:px-10">
+                        <p className="text-xs font-bold tracking-[0.16em] text-[var(--lp-muted)] uppercase">Impact</p>
                         <div className="mt-6 grid sm:grid-cols-3 gap-8">
                             {OUTCOMES.map((item) => (
                                 <div key={item.label}>
@@ -233,8 +235,8 @@ export default function LandingPage() {
                     <div className="mt-8 grid md:grid-cols-2 gap-4">
                         {TESTIMONIALS.map((item) => (
                             <div key={item.author} className="lp-card p-6">
-                                <p className="text-[#2f281b] leading-relaxed">&quot;{item.quote}&quot;</p>
-                                <p className="mt-4 text-sm font-semibold text-[#6d5e42]">{item.author}</p>
+                                <p className="leading-relaxed">&quot;{item.quote}&quot;</p>
+                                <p className="mt-4 text-sm font-semibold text-[var(--lp-muted)]">{item.author}</p>
                             </div>
                         ))}
                     </div>
@@ -261,7 +263,7 @@ export default function LandingPage() {
                             <button
                                 data-cta-id="final-explore-dashboard"
                                 onClick={() => navigateWithTracking("final-explore-dashboard", "/dashboard")}
-                                className="lp-btn-secondary bg-white px-8 py-3 text-base"
+                                className="lp-btn-secondary bg-[var(--lp-card-bg)] px-8 py-3 text-base"
                             >
                                 Explore Dashboard
                             </button>
