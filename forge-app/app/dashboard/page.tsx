@@ -7,6 +7,7 @@ import { UserButton, useUser } from "@clerk/nextjs";
 import { Avatar, Spinner, Tag, SectionLabel } from "@/components/ui";
 import { AnalysisReport } from "@/components/AnalysisReport";
 import { parseStreamedJson } from "@/lib/parseStreamedJson";
+import { ForgeLogo } from "@/components/ForgeLogo";
 
 
 
@@ -878,7 +879,7 @@ export default function DashboardPage() {
                         <span className="font-extrabold text-lg tracking-tighter">
                             FORGE
                         </span>
-                        <span className="text-[#e86f2d] text-xl">⬡</span>
+                        <ForgeLogo className="w-5 h-5" />
                     </Link>
                     <button
                         onClick={() => setSidebarOpen(false)}
@@ -1301,9 +1302,7 @@ export default function DashboardPage() {
                         </div>
                     ) : (
                         <div className="h-full flex flex-col items-center justify-center text-center px-4 lg:px-6">
-                            <div className="text-[#e86f2d] text-4xl lg:text-5xl mb-6 lg:mb-8 font-mono">
-                                ⬡
-                            </div>
+                            <ForgeLogo className="w-12 h-12 lg:w-14 lg:h-14 mb-6 lg:mb-8" />
                             <h2 className="text-2xl lg:text-4xl font-extrabold tracking-tighter mb-3 lg:mb-4 max-w-md">
                                 What should we{" "}
                                 <span className="text-[#e86f2d] font-mono italic">

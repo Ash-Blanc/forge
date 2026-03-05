@@ -1,31 +1,31 @@
 @import "tailwindcss";
 
 @theme {
-    --color-bg: #030014;
-    --color-surface: rgba(10, 10, 31, 0.4);
-    --color-elevated: rgba(20, 20, 45, 0.6);
-    --color-border: rgba(255, 255, 255, 0.1);
-    --color-border-hover: rgba(255, 255, 255, 0.2);
+    --color-bg: #181819;
+    --color-surface: rgba(49, 49, 51, 0.72);
+    --color-elevated: rgba(74, 74, 77, 0.72);
+    --color-border: rgba(99, 99, 103, 0.5);
+    --color-border-hover: rgba(230, 230, 230, 0.35);
 
-    --color-text: #f0f0f5;
-    --color-muted: #a0a0b5;
-    --color-faint: #606075;
+    --color-text: #ffffff;
+    --color-muted: #e6e6e6;
+    --color-faint: #636367;
 
-    --color-accent: #e86f2d;
-    --color-accent-dim: rgba(232, 111, 45, 0.12);
+    --color-accent: #636367;
+    --color-accent-dim: rgba(99, 99, 103, 0.22);
 
-    --color-teal: #2f8b6b;
-    --color-teal-dim: rgba(47, 139, 107, 0.12);
-    --color-sage: #6e8e5f;
-    --color-sage-dim: rgba(110, 142, 95, 0.12);
-    --color-stone: #8d7753;
-    --color-stone-dim: rgba(141, 119, 83, 0.12);
-    --color-blue: #2d6fb9;
-    --color-blue-dim: rgba(45, 111, 185, 0.12);
-    --color-amber: #d4a03c;
-    --color-amber-dim: rgba(212, 160, 60, 0.12);
-    --color-red: #c43f3f;
-    --color-red-dim: rgba(196, 63, 63, 0.1);
+    --color-teal: #636367;
+    --color-teal-dim: rgba(99, 99, 103, 0.16);
+    --color-sage: #4a4a4d;
+    --color-sage-dim: rgba(74, 74, 77, 0.16);
+    --color-stone: #313133;
+    --color-stone-dim: rgba(49, 49, 51, 0.16);
+    --color-blue: #4a4a4d;
+    --color-blue-dim: rgba(74, 74, 77, 0.16);
+    --color-amber: #e6e6e6;
+    --color-amber-dim: rgba(230, 230, 230, 0.14);
+    --color-red: #636367;
+    --color-red-dim: rgba(99, 99, 103, 0.16);
 
     --font-serif: var(--font-serif), ui-serif, Georgia, serif;
     --font-sans: var(--font-sans), system-ui, sans-serif;
@@ -118,7 +118,7 @@
         align-items: center;
         justify-content: center;
         background: var(--accent);
-        color: #fff9ec;
+        color: #181819;
         font-weight: 600;
         font-size: 0.875rem;
         padding: 0.75rem 1.5rem;
@@ -206,7 +206,7 @@
         outline: none;
         border-color: var(--accent);
         box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
-        background: #fffdf7;
+        background: #313133;
     }
 
     .scroll-y {
@@ -280,15 +280,15 @@
 
     @keyframes pulse-glow {
         0% {
-            filter: drop-shadow(0 0 0 rgba(232, 111, 45, 0));
+            filter: drop-shadow(0 0 0 rgba(230, 230, 230, 0));
         }
 
         50% {
-            filter: drop-shadow(0 0 10px rgba(232, 111, 45, 0.3));
+            filter: drop-shadow(0 0 10px rgba(230, 230, 230, 0.3));
         }
 
         100% {
-            filter: drop-shadow(0 0 0 rgba(232, 111, 45, 0));
+            filter: drop-shadow(0 0 0 rgba(230, 230, 230, 0));
         }
     }
 
@@ -330,28 +330,25 @@
 
 @layer components {
     :root {
-        --lp-bg: #f7f3ea;
-        --lp-text: #17130c;
-        --lp-muted: #5b4e37;
-        --lp-border: #e8dfcf;
-        --lp-card-bg: #fff9ec;
-        --lp-brand: #e86f2d;
-        --lp-brand-dark: #17130c;
+        --lp-bg: #181819;
+        --lp-text: #ffffff;
+        --lp-muted: #e6e6e6;
+        --lp-border: #4a4a4d;
+        --lp-card-bg: #313133;
+        --lp-brand: #ffffff;
+        --lp-brand-dark: #313133;
+        --lp-surface-soft: #4a4a4d;
+        --lp-surface-strong: #636367;
     }
 
     .lp-shell {
         min-height: 100vh;
-        background-color: #0b0f19;
-        /* Deep, rich navy core */
+        background-color: var(--lp-bg);
         background-image:
-            radial-gradient(ellipse at 50% 0%, rgba(120, 119, 198, 0.35) 0%, transparent 60%),
-            /* Top center glow */
-            radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.25) 0%, transparent 45%),
-            /* Indigo glow left */
-            radial-gradient(circle at 90% 15%, rgba(168, 85, 247, 0.2) 0%, transparent 45%),
-            /* Purple ethereal right */
-            radial-gradient(circle at 50% 100%, rgba(56, 189, 248, 0.15) 0%, transparent 55%);
-        /* Bottom sky blue base */
+            radial-gradient(ellipse at 50% 0%, rgba(99, 99, 103, 0.33) 0%, transparent 62%),
+            radial-gradient(circle at 15% 20%, rgba(74, 74, 77, 0.26) 0%, transparent 45%),
+            radial-gradient(circle at 85% 16%, rgba(49, 49, 51, 0.28) 0%, transparent 46%),
+            radial-gradient(circle at 50% 100%, rgba(230, 230, 230, 0.08) 0%, transparent 55%);
         color: var(--lp-text);
         position: relative;
         overflow: hidden;
@@ -365,12 +362,12 @@
         right: 0;
         bottom: 0;
         background-image:
-            radial-gradient(2px 2px at 20px 30px, #ffffff, rgba(0, 0, 0, 0)),
-            radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.8), rgba(0, 0, 0, 0)),
-            radial-gradient(2px 2px at 50px 160px, rgba(255, 255, 255, 0.6), rgba(0, 0, 0, 0)),
-            radial-gradient(2px 2px at 90px 40px, rgba(255, 255, 255, 0.9), rgba(0, 0, 0, 0)),
-            radial-gradient(2px 2px at 130px 80px, rgba(255, 255, 255, 0.5), rgba(0, 0, 0, 0)),
-            radial-gradient(2px 2px at 160px 120px, rgba(255, 255, 255, 0.7), rgba(0, 0, 0, 0));
+            radial-gradient(2px 2px at 20px 30px, rgba(230, 230, 230, 0.95), rgba(0, 0, 0, 0)),
+            radial-gradient(2px 2px at 40px 70px, rgba(230, 230, 230, 0.75), rgba(0, 0, 0, 0)),
+            radial-gradient(2px 2px at 50px 160px, rgba(99, 99, 103, 0.65), rgba(0, 0, 0, 0)),
+            radial-gradient(2px 2px at 90px 40px, rgba(230, 230, 230, 0.85), rgba(0, 0, 0, 0)),
+            radial-gradient(2px 2px at 130px 80px, rgba(74, 74, 77, 0.75), rgba(0, 0, 0, 0)),
+            radial-gradient(2px 2px at 160px 120px, rgba(99, 99, 103, 0.72), rgba(0, 0, 0, 0));
         background-repeat: repeat;
         background-size: 200px 200px;
         opacity: 0.3;
@@ -397,18 +394,18 @@
 
     .lp-card {
         background: var(--lp-card-bg);
-        border: 1px solid #e6dbc6;
+        border: 1px solid var(--lp-border);
         border-radius: 1rem;
     }
 
     .lp-card:hover {
-        box-shadow: 0 22px 52px -34px rgba(23, 19, 12, 0.44);
+        box-shadow: 0 22px 52px -34px rgba(24, 24, 25, 0.62);
     }
 
     .lp-btn-primary {
         border-radius: 0.75rem;
         background: var(--lp-brand);
-        color: #fffaf1;
+        color: var(--lp-bg);
         font-weight: 700;
         transition: transform 0.2s ease, opacity 0.2s ease;
     }
@@ -420,7 +417,7 @@
     .lp-btn-dark {
         border-radius: 0.75rem;
         background: var(--lp-brand-dark);
-        color: #fff9eb;
+        color: var(--lp-text);
         font-weight: 600;
         transition: opacity 0.2s ease;
     }
@@ -431,15 +428,15 @@
 
     .lp-btn-secondary {
         border-radius: 0.75rem;
-        border: 1px solid #d8cab2;
-        background: #fff9ec;
+        border: 1px solid var(--lp-border);
+        background: var(--lp-card-bg);
         color: var(--lp-text);
         font-weight: 600;
         transition: background 0.2s ease;
     }
 
     .lp-btn-secondary:hover {
-        background: #fff5e1;
+        background: var(--lp-surface-soft);
     }
 
     .lp-reveal {

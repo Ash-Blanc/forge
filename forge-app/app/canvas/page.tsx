@@ -5,6 +5,7 @@ import 'tldraw/tldraw.css';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Spinner } from '@/components/ui';
+import { ForgeLogo } from "@/components/ForgeLogo";
 
 interface Session {
     id: string;
@@ -158,7 +159,7 @@ ${session.title}`,
                     </Link>
                     <div className="flex items-center gap-2">
                         <span className="font-extrabold text-lg tracking-tighter">FORGE</span>
-                        <span className="text-[#e86f2d] text-xl">⬡</span>
+                        <ForgeLogo className="w-5 h-5" />
                         <span className="text-[#8a7a5d] ml-2">/</span>
                         <span className="text-[0.65rem] font-mono text-[#8a7a5d] uppercase tracking-widest">
                             CANVAS MODE
