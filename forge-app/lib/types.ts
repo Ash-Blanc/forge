@@ -19,6 +19,7 @@ export interface ForgeAnalysis {
     tags: string[];
     first90Days: string[];
     narrativeAnalysis: string;
+    confidenceScore?: number;
 }
 
 export interface ForgePaper {
