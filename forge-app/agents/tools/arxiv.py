@@ -1,6 +1,11 @@
 from agno.tools.arxiv import ArxivTools
 
 class CustomArxivTools(ArxivTools):
+    def __init__(self):
+        super().__init__(
+            enable_read_arxiv_papers=False,
+        )
+
     def search_arxiv_and_return_articles(self, query: str, num_articles: int = 10) -> str:
         """
         Search arXiv and return articles. Hardcapped at 2 to save context.

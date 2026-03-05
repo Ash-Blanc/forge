@@ -26,6 +26,7 @@ export function parseStreamedJson(jsonStr: string): any {
         let inString = false;
         let isEscaped = false;
         const stack: string[] = [];
+        let cleanStrBuilder = "";
 
         for (let i = 0; i < cleanStr.length; i++) {
             const char = cleanStr[i];

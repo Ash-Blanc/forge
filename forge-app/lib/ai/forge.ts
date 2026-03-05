@@ -12,15 +12,26 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * Call an Agno agent and return its raw output string.
  * Retries up to MAX_RETRIES times with exponential backoff on 5xx / network errors.
- * Each attempt is subject to a AGENT_TIMEOUT_MS AbortController timeout.
+ * Each attempt is subject to AGENT_TIMEOUT_MS; aborts when parentSignal aborts.
  */
-export async function generateAgentOutput(agentId: string, message: string): Promise<string> {
+export async function generateAgentOutput(
+    agentId: string,
+    message: string,
+    parentSignal?: AbortSignal | null
+): Promise<string> {
     let lastError: Error | null = null;
     const startTime = Date.now();
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), AGENT_TIMEOUT_MS);
+
+        const cleanup = () => {
+            clearTimeout(timer);
+            parentSignal?.removeEventListener?.("abort", onParentAbort);
+        };
+        const onParentAbort = () => controller.abort();
+        parentSignal?.addEventListener?.("abort", onParentAbort);
 
         try {
             const res = await fetch(`${AGNO_BASE_URL}/agents/${agentId}/runs`, {
@@ -30,7 +41,7 @@ export async function generateAgentOutput(agentId: string, message: string): Pro
                 signal: controller.signal,
             });
 
-            clearTimeout(timer);
+            cleanup();
 
             if (!res.ok) {
                 const detail = await res.text().catch(() => "");
@@ -62,7 +73,7 @@ export async function generateAgentOutput(agentId: string, message: string): Pro
             
             return data?.content || "{}";
         } catch (err: any) {
-            clearTimeout(timer);
+            cleanup();
             lastError = err;
 
             // Stop retrying if we reached MAX_RETRIES
@@ -87,12 +98,13 @@ export async function generateAgentOutput(agentId: string, message: string): Pro
 }
 
 export async function processForgeWorkflow(
-    paperId: string, 
-    title: string, 
-    abstract: string, 
-    authors: string[], 
+    paperId: string,
+    title: string,
+    abstract: string,
+    authors: string[],
     userQuery?: string,
-    onProgress?: (text: string) => void
+    onProgress?: (text: string) => void,
+    abortSignal?: AbortSignal | null
 ) {
     const notify = (msg: string) => { onProgress?.(msg); };
 
@@ -106,7 +118,7 @@ export async function processForgeWorkflow(
     Return ONLY valid JSON as requested.`;
     
     notify("Waiting for Forge Analyst agent...\n");
-    const analystOutputRaw = await generateAgentOutput("forge-analyst", analystPrompt);
+    const analystOutputRaw = await generateAgentOutput("forge-analyst", analystPrompt, abortSignal);
     const analystOutput = JSON.parse(analystOutputRaw || "{}");
     notify("Done with Analyst!\n");
     
@@ -117,7 +129,7 @@ export async function processForgeWorkflow(
     ${JSON.stringify(analystOutput)}
     Return ONLY valid JSON as requested.`;
     
-    const architectOutputRaw = await generateAgentOutput("product-architect", architectPrompt);
+    const architectOutputRaw = await generateAgentOutput("product-architect", architectPrompt, abortSignal);
     const architectOutput = JSON.parse(architectOutputRaw || "{}");
     notify("Done with Architect!\n");
 
@@ -128,7 +140,7 @@ export async function processForgeWorkflow(
     ${JSON.stringify(architectOutput)}
     Return ONLY valid JSON as requested.`;
 
-    const strategistOutputRaw = await generateAgentOutput("market-strategist", strategistPrompt);
+    const strategistOutputRaw = await generateAgentOutput("market-strategist", strategistPrompt, abortSignal);
     const strategistOutput = JSON.parse(strategistOutputRaw || "{}");
     notify("Done with Strategist!\n");
 

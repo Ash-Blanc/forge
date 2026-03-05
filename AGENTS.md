@@ -88,6 +88,15 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
+**Analyze proxy timeout and retry** (optional):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ANALYZE_TIMEOUT_MS` | 120000 | Max ms for the full paper analysis workflow (3 agents) |
+| `AGENT_TIMEOUT_MS` | 30000 | Per-agent request timeout in forge workflow |
+| `PROXY_TIMEOUT_MS` | 30000 | Per-request timeout for analyze-saas / analyze-competitors |
+| `MAX_PROXY_RETRIES` | 2 | Retries for 5xx/network errors in proxy and forge |
+
 ## Code Style Guidelines
 
 ### General Principles
