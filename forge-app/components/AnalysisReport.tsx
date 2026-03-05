@@ -7,9 +7,10 @@ import { Tag } from "./ui";
 interface AnalysisReportProps {
     data: Partial<ForgeAnalysis>;
     isStreaming?: boolean;
+    onReRunCustomer?: (prompt: string) => void;
 }
 
-export function AnalysisReport({ data: initialData, isStreaming = false }: AnalysisReportProps) {
+export function AnalysisReport({ data: initialData, isStreaming = false, onReRunCustomer }: AnalysisReportProps) {
     if (!initialData || typeof initialData !== "object") return null;
 
     // Handle case where Agno returns { analysis: { opportunity: ... } } depending on the parsing logic
@@ -68,6 +69,17 @@ export function AnalysisReport({ data: initialData, isStreaming = false }: Analy
                             {data.targetCustomer}
                             {isStreaming && data.targetCustomer && !data.marketSize && <span className="animate-blink text-[#2f8b6b]">▌</span>}
                         </p>
+                        {onReRunCustomer && !isStreaming && (
+                            <button
+                                onClick={() => onReRunCustomer(prompt("Enter new target customer prompt:") || "")}
+                                className="mt-2 text-xs text-[#e86f2d] hover:underline flex items-center gap-1"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Re-run for different customer
+                            </button>
+                        )}
                     </div>
                 )}
 
